@@ -13,23 +13,16 @@ dotenv.config();
 
 const app = express();
 
-/* =========================
-   Security Middlewares
-========================= */
-
+// GLOBAL RATE LIMITER (must be before routes)
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per IP
-  message: { message: "Too many requests. Try again later." }
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: "Too many requests. Try again later."
 });
 
-app.use(limiter);       // ✅ Apply BEFORE routes
 app.use(cors());
 app.use(express.json());
-
-/* =========================
-   Routes
-========================= */
+app.use(limiter);
 
 app.use("/api/qr", qrRoutes(pool));
 app.use("/api/emergency", emergencyRoutes(pool));
@@ -40,12 +33,9 @@ app.get("/", (req, res) => {
   res.send("API running");
 });
 
-/* =========================
-   Start Server
-========================= */
+// IMPORTANT: Railway PORT binding
+const PORT = process.env.PORT;
 
-const PORT = process.env.PORT || 5000;
-
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });
