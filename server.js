@@ -17,7 +17,7 @@ const app = express();
    Global Rate Limiter
 ========================= */
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 100,
   message: "Too many requests. Try again later."
 });
@@ -35,20 +35,33 @@ app.use("/api/otp", otpRoutes(pool));
 app.use("/api/masked", maskedRoutes(pool));
 
 /* =========================
-   Root + Health Check
+   Root
 ========================= */
 app.get("/", (req, res) => {
-  res.send("API running");
+  res.status(200).send("API running");
 });
 
+/* =========================
+   Health Check (Single Source)
+========================= */
 app.get("/health", (req, res) => {
-  res.status(200).send("OK");
+  res.status(200).json({
+    status: "ok",
+    service: "Vahan Tag",
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString()
+  });
 });
 
 /* =========================
    Railway Port Binding
 ========================= */
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT;
+
+if (!PORT) {
+  console.error("PORT is not defined.");
+  process.exit(1);
+}
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
