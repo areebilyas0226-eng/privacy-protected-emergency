@@ -1,21 +1,42 @@
 import express from "express";
-import { generateOTP, otpExpiry } from "../services/otp.service.js";
 
 export default function qrRoutes(pool) {
   const router = express.Router();
 
-  // =========================
-  // Test route
-  // =========================
+  const ALLOWED_ACTIONS = ["sms", "call", "view"];
+
+  /* =========================
+     Helper: Real Client IP
+  ========================= */
+  function getClientIP(req) {
+    return (
+      req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+      req.socket?.remoteAddress ||
+      req.ip ||
+      "unknown"
+    );
+  }
+
+  /* =========================
+     Normalize QR Code
+  ========================= */
+  function normalize(code) {
+    if (!code) return null;
+    return code.trim().toUpperCase();
+  }
+
+  /* =========================
+     Test Route
+  ========================= */
   router.get("/test", (req, res) => {
     return res.json({ message: "QR route working" });
   });
 
-  // =========================
-  // Create QR
-  // =========================
+  /* =========================
+     Create QR
+  ========================= */
   router.post("/", async (req, res) => {
-    const { qr_code, type } = req.body;
+    let { qr_code, type } = req.body;
 
     if (!qr_code || !type) {
       return res.status(400).json({
@@ -23,11 +44,15 @@ export default function qrRoutes(pool) {
       });
     }
 
+    qr_code = normalize(qr_code);
+
     try {
       const result = await pool.query(
-        `INSERT INTO qr_tags (qr_code, type, status)
-         VALUES ($1, $2, 'inactive')
-         RETURNING id, qr_code, type, status`,
+        `
+        INSERT INTO qr_tags (qr_code, type, status)
+        VALUES ($1, $2, 'inactive')
+        RETURNING id, qr_code, type, status
+        `,
         [qr_code, type]
       );
 
@@ -36,17 +61,27 @@ export default function qrRoutes(pool) {
         data: result.rows[0]
       });
 
-    } catch (error) {
-      console.error("QR create error:", error);
+    } catch (err) {
+      if (err.code === "23505") {
+        return res.status(400).json({
+          message: "QR already exists"
+        });
+      }
+
+      console.error("Create QR error:", err);
       return res.status(500).json({ message: "Server error" });
     }
   });
 
-  // =========================
-  // Get QR
-  // =========================
+  /* =========================
+     Get QR (Validated + Log View)
+  ========================= */
   router.get("/:code", async (req, res) => {
-    const { code } = req.params;
+    const code = normalize(req.params.code);
+
+    if (!code) {
+      return res.status(400).json({ message: "Invalid QR code" });
+    }
 
     try {
       const result = await pool.query(
@@ -70,153 +105,111 @@ export default function qrRoutes(pool) {
         [code]
       );
 
-      if (result.rows.length === 0) {
+      if (!result.rows.length) {
         return res.status(404).json({ message: "QR not found" });
       }
 
       const qr = result.rows[0];
 
+      if (qr.expires_at && new Date(qr.expires_at) < new Date()) {
+        return res.status(403).json({ message: "QR expired" });
+      }
+
       if (qr.status !== "active") {
         return res.status(403).json({ message: "QR not activated" });
       }
+
+      // Non-blocking log
+      pool.query(
+        `
+        INSERT INTO emergency_logs (qr_tag_id, action_type, caller_ip)
+        VALUES ($1, $2, $3)
+        `,
+        [qr.id, "view", getClientIP(req)]
+      ).catch(console.error);
+
+      return res.json(qr);
+
+    } catch (err) {
+      console.error("Fetch QR error:", err);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  /* =========================
+     Contact Owner (Spam Protected)
+  ========================= */
+  router.post("/:code/contact", async (req, res) => {
+    const code = normalize(req.params.code);
+    const { action_type } = req.body;
+
+    if (!code) {
+      return res.status(400).json({ message: "Invalid QR code" });
+    }
+
+    if (!ALLOWED_ACTIONS.includes(action_type)) {
+      return res.status(400).json({
+        message: "Invalid action_type"
+      });
+    }
+
+    try {
+      const qrResult = await pool.query(
+        `
+        SELECT id, status, expires_at
+        FROM qr_tags
+        WHERE qr_code = $1
+        `,
+        [code]
+      );
+
+      if (!qrResult.rows.length) {
+        return res.status(404).json({ message: "QR not found" });
+      }
+
+      const qr = qrResult.rows[0];
 
       if (qr.expires_at && new Date(qr.expires_at) < new Date()) {
         return res.status(403).json({ message: "QR expired" });
       }
 
-      return res.json(qr);
-
-    } catch (error) {
-      console.error("QR fetch error:", error);
-      return res.status(500).json({ message: "Server error" });
-    }
-  });
-
-  // =========================
-  // Send OTP (Bound to QR)
-  // =========================
-  router.post("/:code/send-otp", async (req, res) => {
-    const { code } = req.params;
-    const { mobile } = req.body;
-
-    if (!mobile) {
-      return res.status(400).json({ message: "Mobile required" });
-    }
-
-    try {
-      const qrResult = await pool.query(
-        `SELECT id FROM qr_tags WHERE qr_code = $1`,
-        [code]
-      );
-
-      if (qrResult.rows.length === 0) {
-        return res.status(404).json({ message: "QR not found" });
+      if (qr.status !== "active") {
+        return res.status(403).json({ message: "QR not activated" });
       }
 
-      const qrId = qrResult.rows[0].id;
-      const otp = generateOTP();
+      const ip = getClientIP(req);
 
-      await pool.query(
-        `INSERT INTO otp_verifications 
-         (qr_tag_id, mobile, otp, expires_at, verified)
-         VALUES ($1, $2, $3, $4, false)`,
-        [qrId, mobile, otp, otpExpiry()]
-      );
-
-      return res.json({
-        message: "OTP sent",
-        debug_otp: otp // REMOVE in production
-      });
-
-    } catch (error) {
-      console.error("OTP send error:", error);
-      return res.status(500).json({ message: "Server error" });
-    }
-  });
-
-  // =========================
-  // Activate QR (STRICT + QR BOUND)
-  // =========================
-  router.post("/:code/activate", async (req, res) => {
-    const { code } = req.params;
-    const { mobile, otp } = req.body;
-
-    if (!mobile || !otp) {
-      return res.status(400).json({
-        message: "mobile and otp required"
-      });
-    }
-
-    try {
-      // 1️⃣ Get QR ID first
-      const qrResult = await pool.query(
-        `SELECT id FROM qr_tags WHERE qr_code = $1`,
-        [code]
-      );
-
-      if (qrResult.rows.length === 0) {
-        return res.status(404).json({ message: "QR not found" });
-      }
-
-      const qrId = qrResult.rows[0].id;
-
-      // 2️⃣ Strict OTP verification (BOUND TO QR)
-      const otpCheck = await pool.query(
+      // Strict rate limiting per IP (5 per 2 minutes)
+      const spamCheck = await pool.query(
         `
-        SELECT id FROM otp_verifications
-        WHERE qr_tag_id = $1
-          AND mobile = $2
-          AND otp = $3
-          AND expires_at > NOW()
-          AND verified = false
-        ORDER BY created_at DESC
-        LIMIT 1
+        SELECT COUNT(*) 
+        FROM emergency_logs
+        WHERE caller_ip = $1
+          AND created_at > NOW() - INTERVAL '2 minutes'
         `,
-        [qrId, mobile, otp]
+        [ip]
       );
 
-      if (otpCheck.rows.length === 0) {
-        return res.status(403).json({
-          message: "Invalid or expired OTP"
+      if (Number(spamCheck.rows[0].count) >= 5) {
+        return res.status(429).json({
+          message: "Too many requests"
         });
       }
 
-      // 3️⃣ Mark OTP used
       await pool.query(
         `
-        UPDATE otp_verifications
-        SET verified = true
-        WHERE id = $1
+        INSERT INTO emergency_logs (qr_tag_id, action_type, caller_ip)
+        VALUES ($1, $2, $3)
         `,
-        [otpCheck.rows[0].id]
+        [qr.id, action_type, ip]
       );
-
-      // 4️⃣ Activate QR
-      const result = await pool.query(
-        `
-        UPDATE qr_tags
-        SET status = 'active',
-            activated_at = NOW()
-        WHERE id = $1
-          AND status != 'active'
-        RETURNING id, qr_code, type, status, activated_at
-        `,
-        [qrId]
-      );
-
-      if (result.rows.length === 0) {
-        return res.status(400).json({
-          message: "Already active"
-        });
-      }
 
       return res.json({
-        message: "QR activated successfully",
-        data: result.rows[0]
+        message: "Contact logged"
       });
 
-    } catch (error) {
-      console.error("QR activate error:", error);
+    } catch (err) {
+      console.error("Contact error:", err);
       return res.status(500).json({ message: "Server error" });
     }
   });

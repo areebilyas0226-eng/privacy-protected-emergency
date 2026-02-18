@@ -3,9 +3,9 @@ import express from "express";
 export default function emergencyRoutes(pool) {
   const router = express.Router();
 
-  // =========================================
-  // 1️⃣ SCAN QR (Fetch Emergency Info Only)
-  // =========================================
+  // =====================================================
+  // 1️⃣ SCAN QR (Emergency Info Only)
+  // =====================================================
   router.get("/:code", async (req, res) => {
     const { code } = req.params;
 
@@ -19,7 +19,7 @@ export default function emergencyRoutes(pool) {
         [code]
       );
 
-      if (qrResult.rows.length === 0) {
+      if (!qrResult.rows.length) {
         return res.status(404).json({ message: "QR not found" });
       }
 
@@ -29,8 +29,14 @@ export default function emergencyRoutes(pool) {
         return res.status(403).json({ message: "QR not activated" });
       }
 
+      // 🔴 SUBSCRIPTION CHECK
       if (qr.expires_at && new Date(qr.expires_at) < new Date()) {
-        return res.status(403).json({ message: "QR expired" });
+        return res.status(403).json({
+          status: "expired",
+          message: "Subscription expired. Please contact Vahan Tag to renew.",
+          allow_call: false,
+          allow_sms: false
+        });
       }
 
       let profile = null;
@@ -45,7 +51,7 @@ export default function emergencyRoutes(pool) {
           [qr.id]
         );
 
-        if (result.rows.length > 0) {
+        if (result.rows.length) {
           profile = result.rows[0];
         }
       }
@@ -77,16 +83,16 @@ export default function emergencyRoutes(pool) {
     }
   });
 
-  // =========================================
+  // =====================================================
   // 2️⃣ INITIATE MASKED CALL
-  // =========================================
+  // =====================================================
   router.post("/:code/call", async (req, res) => {
     const { code } = req.params;
 
     try {
       const qrResult = await pool.query(
         `
-        SELECT q.id, q.status, v.owner_mobile
+        SELECT q.id, q.status, q.expires_at, v.owner_mobile
         FROM qr_tags q
         JOIN vehicle_profiles v ON q.id = v.qr_tag_id
         WHERE q.qr_code = $1
@@ -94,7 +100,7 @@ export default function emergencyRoutes(pool) {
         [code]
       );
 
-      if (qrResult.rows.length === 0) {
+      if (!qrResult.rows.length) {
         return res.status(404).json({ message: "QR not found" });
       }
 
@@ -104,11 +110,16 @@ export default function emergencyRoutes(pool) {
         return res.status(403).json({ message: "QR not activated" });
       }
 
-      // 🔴 IMPORTANT:
-      // Do NOT expose qr.owner_mobile here.
-      // Instead, integrate MSG91/Exotel masked call API here.
+      // 🔴 SUBSCRIPTION CHECK
+      if (qr.expires_at && new Date(qr.expires_at) < new Date()) {
+        return res.status(403).json({
+          status: "expired",
+          message: "Subscription expired"
+        });
+      }
 
-      // TODO: call masking provider integration
+      // 🔴 DO NOT expose owner_mobile
+      // Integrate MSG91/Exotel masked call here
 
       await pool.query(
         `
@@ -129,9 +140,9 @@ export default function emergencyRoutes(pool) {
     }
   });
 
-  // =========================================
+  // =====================================================
   // 3️⃣ EMERGENCY SMS
-  // =========================================
+  // =====================================================
   router.post("/:code/sms", async (req, res) => {
     const { code } = req.params;
     const { message } = req.body;
@@ -143,7 +154,7 @@ export default function emergencyRoutes(pool) {
     try {
       const qrResult = await pool.query(
         `
-        SELECT q.id, q.status, v.owner_mobile
+        SELECT q.id, q.status, q.expires_at, v.owner_mobile
         FROM qr_tags q
         JOIN vehicle_profiles v ON q.id = v.qr_tag_id
         WHERE q.qr_code = $1
@@ -151,7 +162,7 @@ export default function emergencyRoutes(pool) {
         [code]
       );
 
-      if (qrResult.rows.length === 0) {
+      if (!qrResult.rows.length) {
         return res.status(404).json({ message: "QR not found" });
       }
 
@@ -161,7 +172,16 @@ export default function emergencyRoutes(pool) {
         return res.status(403).json({ message: "QR not activated" });
       }
 
-      // TODO: Integrate MSG91 SMS here
+      // 🔴 SUBSCRIPTION CHECK
+      if (qr.expires_at && new Date(qr.expires_at) < new Date()) {
+        return res.status(403).json({
+          status: "subscription_expired",
+          message: "Subscription expired. Contact Vahan Tag for re-activation.",
+          support: "Vahan Tag"
+        });
+      }
+
+      // 🔴 Integrate MSG91 SMS here
 
       await pool.query(
         `

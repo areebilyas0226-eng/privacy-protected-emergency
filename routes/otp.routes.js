@@ -5,9 +5,9 @@ import { generateOTP, otpExpiry } from "../services/otp.service.js";
 export default function otpRoutes(pool) {
   const router = express.Router();
 
-  // =========================
-  // Rate Limiter (IP based)
-  // =========================
+  /* =========================
+     OTP Rate Limiter
+  ========================= */
   const otpLimiter = rateLimit({
     windowMs: 10 * 60 * 1000, // 10 minutes
     max: 5,
@@ -16,22 +16,25 @@ export default function otpRoutes(pool) {
     message: { message: "Too many OTP attempts. Try later." }
   });
 
-  // =========================
-  // Send OTP
-  // =========================
+  /* =========================
+     SEND OTP
+  ========================= */
   router.post("/send", otpLimiter, async (req, res) => {
-    let { mobile } = req.body;
-
-    if (!mobile) {
-      return res.status(400).json({ message: "Mobile required" });
-    }
-
-    mobile = mobile.trim();
-
-    const otp = generateOTP();
-
     try {
-      // 🔴 Invalidate previous OTPs for this mobile
+      if (!req.body?.mobile) {
+        return res.status(400).json({ message: "Mobile required" });
+      }
+
+      let mobile = req.body.mobile.trim();
+
+      // Basic India mobile validation
+      if (!/^[6-9]\d{9}$/.test(mobile)) {
+        return res.status(400).json({ message: "Invalid mobile number" });
+      }
+
+      const otp = generateOTP();
+
+      // Invalidate previous active OTPs
       await pool.query(
         `
         UPDATE otp_verifications
@@ -42,7 +45,7 @@ export default function otpRoutes(pool) {
         [mobile]
       );
 
-      // 🔴 Insert fresh OTP
+      // Insert new OTP
       await pool.query(
         `
         INSERT INTO otp_verifications
@@ -52,10 +55,9 @@ export default function otpRoutes(pool) {
         [mobile, otp, otpExpiry()]
       );
 
-      // TODO: Integrate MSG91 here
-      console.log("OTP:", otp);
+      console.log("Generated OTP:", otp); // Remove when SMS integrated
 
-      return res.json({
+      return res.status(200).json({
         message: "OTP sent successfully"
       });
 
@@ -65,21 +67,20 @@ export default function otpRoutes(pool) {
     }
   });
 
-  // =========================
-  // Verify OTP
-  // =========================
+  /* =========================
+     VERIFY OTP
+  ========================= */
   router.post("/verify", async (req, res) => {
-    let { mobile, otp } = req.body;
-
-    if (!mobile || !otp) {
-      return res.status(400).json({
-        message: "mobile and otp required"
-      });
-    }
-
-    mobile = mobile.trim();
-
     try {
+      if (!req.body?.mobile || !req.body?.otp) {
+        return res.status(400).json({
+          message: "mobile and otp required"
+        });
+      }
+
+      let mobile = req.body.mobile.trim();
+      let otp = req.body.otp.trim();
+
       const result = await pool.query(
         `
         SELECT id
@@ -100,7 +101,7 @@ export default function otpRoutes(pool) {
         });
       }
 
-      // 🔴 Mark only that OTP as verified
+      // Mark matched OTP as verified
       await pool.query(
         `
         UPDATE otp_verifications
@@ -110,7 +111,7 @@ export default function otpRoutes(pool) {
         [result.rows[0].id]
       );
 
-      return res.json({
+      return res.status(200).json({
         message: "OTP verified successfully"
       });
 

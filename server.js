@@ -8,41 +8,75 @@ import qrRoutes from "./routes/qr.routes.js";
 import emergencyRoutes from "./routes/emergency.routes.js";
 import otpRoutes from "./routes/otp.routes.js";
 import maskedRoutes from "./routes/masked.routes.js";
+import adminRoutes from "./routes/admin.routes.js";
 
 dotenv.config();
 
 const app = express();
 
 /* =========================
-   Global Rate Limiter
+   TRUST PROXY (Railway / Render)
 ========================= */
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: "Too many requests. Try again later."
-});
-
-app.use(cors());
-app.use(express.json());
-app.use(limiter);
+app.set("trust proxy", 1);
 
 /* =========================
-   Routes
+   CORS (Restrict to Frontend)
+========================= */
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "https://your-frontend-domain.com" // replace in production
+    ],
+    credentials: true
+  })
+);
+
+/* =========================
+   BODY PARSER
+========================= */
+app.use(express.json({ limit: "10kb" }));
+
+/* =========================
+   GLOBAL RATE LIMITER
+========================= */
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Try again later." }
+});
+
+app.use(globalLimiter);
+
+/* =========================
+   ADMIN RATE LIMIT (Strict)
+========================= */
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: { error: "Too many admin requests." }
+});
+
+/* =========================
+   API ROUTES
 ========================= */
 app.use("/api/qr", qrRoutes(pool));
 app.use("/api/emergency", emergencyRoutes(pool));
 app.use("/api/otp", otpRoutes(pool));
 app.use("/api/masked", maskedRoutes(pool));
+app.use("/api/admin", adminLimiter, adminRoutes(pool));
 
 /* =========================
-   Root
+   ROOT
 ========================= */
 app.get("/", (req, res) => {
-  res.status(200).send("API running");
+  res.status(200).json({ message: "API running" });
 });
 
 /* =========================
-   Health Check (Single Source)
+   HEALTH CHECK
 ========================= */
 app.get("/health", (req, res) => {
   res.status(200).json({
@@ -54,14 +88,24 @@ app.get("/health", (req, res) => {
 });
 
 /* =========================
-   Railway Port Binding
+   404 HANDLER
 ========================= */
-const PORT = process.env.PORT;
+app.use((req, res) => {
+  res.status(404).json({ error: "Route not found" });
+});
 
-if (!PORT) {
-  console.error("PORT is not defined.");
-  process.exit(1);
-}
+/* =========================
+   GLOBAL ERROR HANDLER
+========================= */
+app.use((err, req, res, next) => {
+  console.error("Unhandled Error:", err);
+  res.status(500).json({ error: "Internal server error" });
+});
+
+/* =========================
+   START SERVER
+========================= */
+const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
