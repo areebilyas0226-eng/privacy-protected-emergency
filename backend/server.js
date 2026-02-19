@@ -15,18 +15,26 @@ dotenv.config();
 const app = express();
 
 /* =========================
-   TRUST PROXY (Railway / Render)
+   VALIDATE REQUIRED ENV
+========================= */
+if (!process.env.PORT) {
+  console.error("PORT is not defined in environment");
+  process.exit(1);
+}
+
+/* =========================
+   TRUST PROXY
 ========================= */
 app.set("trust proxy", 1);
 
 /* =========================
-   CORS (Restrict to Frontend)
+   CORS
 ========================= */
 app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "https://your-frontend-domain.com" // replace in production
+      "https://your-frontend-domain.com"
     ],
     credentials: true
   })
@@ -38,29 +46,27 @@ app.use(
 app.use(express.json({ limit: "10kb" }));
 
 /* =========================
-   GLOBAL RATE LIMITER
+   GLOBAL RATE LIMIT
 ========================= */
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
   standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "Too many requests. Try again later." }
+  legacyHeaders: false
 });
 
 app.use(globalLimiter);
 
 /* =========================
-   ADMIN RATE LIMIT (Strict)
+   ADMIN RATE LIMIT
 ========================= */
 const adminLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 30,
-  message: { error: "Too many admin requests." }
+  max: 30
 });
 
 /* =========================
-   API ROUTES
+   ROUTES
 ========================= */
 app.use("/api/qr", qrRoutes(pool));
 app.use("/api/emergency", emergencyRoutes(pool));
@@ -76,26 +82,25 @@ app.get("/", (req, res) => {
 });
 
 /* =========================
-   HEALTH CHECK
+   HEALTH
 ========================= */
 app.get("/health", (req, res) => {
   res.status(200).json({
     status: "ok",
-    service: "Vahan Tag",
     uptime: process.uptime(),
     timestamp: new Date().toISOString()
   });
 });
 
 /* =========================
-   404 HANDLER
+   404
 ========================= */
 app.use((req, res) => {
   res.status(404).json({ error: "Route not found" });
 });
 
 /* =========================
-   GLOBAL ERROR HANDLER
+   ERROR HANDLER
 ========================= */
 app.use((err, req, res, next) => {
   console.error("Unhandled Error:", err);
@@ -105,8 +110,21 @@ app.use((err, req, res, next) => {
 /* =========================
    START SERVER
 ========================= */
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT;
 
-app.listen(PORT, "0.0.0.0", () => {
+const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
+});
+
+/* =========================
+   GRACEFUL SHUTDOWN
+========================= */
+process.on("SIGTERM", () => {
+  console.log("SIGTERM received. Shutting down gracefully...");
+  server.close(() => {
+    pool.end(() => {
+      console.log("Server closed.");
+      process.exit(0);
+    });
+  });
 });
