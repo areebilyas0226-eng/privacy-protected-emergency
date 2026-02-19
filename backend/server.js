@@ -15,12 +15,12 @@ dotenv.config();
 const app = express();
 
 /* =========================
-   VALIDATE REQUIRED ENV
+   CONFIG
 ========================= */
-if (!process.env.PORT) {
-  console.error("PORT is not defined in environment");
-  process.exit(1);
-}
+const PORT = process.env.PORT || 5000;
+
+console.log("Environment PORT:", process.env.PORT);
+console.log("Server will run on:", PORT);
 
 /* =========================
    TRUST PROXY
@@ -46,7 +46,7 @@ app.use(
 app.use(express.json({ limit: "10kb" }));
 
 /* =========================
-   GLOBAL RATE LIMIT
+   RATE LIMITING
 ========================= */
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -57,9 +57,6 @@ const globalLimiter = rateLimit({
 
 app.use(globalLimiter);
 
-/* =========================
-   ADMIN RATE LIMIT
-========================= */
 const adminLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30
@@ -82,7 +79,7 @@ app.get("/", (req, res) => {
 });
 
 /* =========================
-   HEALTH
+   HEALTH CHECK (CRITICAL FOR RAILWAY)
 ========================= */
 app.get("/health", (req, res) => {
   res.status(200).json({
@@ -100,7 +97,7 @@ app.use((req, res) => {
 });
 
 /* =========================
-   ERROR HANDLER
+   GLOBAL ERROR HANDLER
 ========================= */
 app.use((err, req, res, next) => {
   console.error("Unhandled Error:", err);
@@ -110,9 +107,7 @@ app.use((err, req, res, next) => {
 /* =========================
    START SERVER
 ========================= */
-const PORT = process.env.PORT;
-
-const server = app.listen(PORT, "0.0.0.0", () => {
+const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
@@ -122,9 +117,14 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 process.on("SIGTERM", () => {
   console.log("SIGTERM received. Shutting down gracefully...");
   server.close(() => {
-    pool.end(() => {
-      console.log("Server closed.");
+    pool.end().then(() => {
+      console.log("Database pool closed.");
       process.exit(0);
     });
   });
+});
+
+process.on("SIGINT", () => {
+  console.log("SIGINT received. Exiting...");
+  process.exit(0);
 });
