@@ -1,0 +1,1 @@
+export const API_BASE_URL = "https://privacy-protected-emergency-production-581f.up.railway.app/api";
