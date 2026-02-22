@@ -1,6 +1,13 @@
+import dotenv from "dotenv";
+dotenv.config();
+
+console.log("RUNTIME ADMIN_KEY:", process.env.ADMIN_KEY);
+
+/* =========================
+   IMPORTS
+========================= */
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 
@@ -11,27 +18,23 @@ import otpRoutes from "./routes/otp.routes.js";
 import maskedRoutes from "./routes/masked.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 
-dotenv.config();
-
-const app = express();
-
 /* =========================
-   REQUIRED ENV VALIDATION
+   ENV VALIDATION
 ========================= */
-if (!process.env.PORT) {
-  console.error("PORT not provided by Railway");
-  process.exit(1);
-}
+const PORT = process.env.PORT || 8080;
 
 if (!process.env.DATABASE_URL) {
   console.error("DATABASE_URL is not defined");
   process.exit(1);
 }
 
-const PORT = process.env.PORT;
+/* =========================
+   APP INIT
+========================= */
+const app = express();
 
 /* =========================
-   TRUST PROXY
+   TRUST PROXY (Railway Required)
 ========================= */
 app.set("trust proxy", 1);
 
@@ -121,7 +124,7 @@ app.get("/health", async (req, res) => {
 });
 
 /* =========================
-   404
+   404 HANDLER
 ========================= */
 app.use((req, res) => {
   res.status(404).json({ error: "Route not found" });
@@ -142,7 +145,6 @@ let server;
 
 const startServer = async () => {
   try {
-    // Validate DB before listening
     await pool.query("SELECT 1");
     console.log("Database connected successfully");
 
