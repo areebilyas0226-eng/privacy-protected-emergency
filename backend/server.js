@@ -17,7 +17,7 @@ import maskedRoutes from "./routes/masked.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 
 /* =========================
-   BASIC ENV LOG (Temporary Debug)
+   DEBUG
 ========================= */
 console.log("Runtime ADMIN_KEY loaded:", !!process.env.ADMIN_KEY);
 
@@ -97,16 +97,13 @@ app.get("/", (req, res) => {
 });
 
 /* =========================
-   HEALTH CHECK
+   HEALTH CHECK (NO DB)
 ========================= */
-app.get("/health", async (req, res) => {
-  try {
-    await pool.query("SELECT 1");
-    res.status(200).json({ status: "ok" });
-  } catch (err) {
-    console.error("Health DB error:", err);
-    res.status(500).json({ status: "db_error" });
-  }
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    uptime: process.uptime()
+  });
 });
 
 /* =========================
