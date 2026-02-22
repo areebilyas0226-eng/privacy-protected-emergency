@@ -19,9 +19,6 @@ export default function AdminDashboard() {
 
   const LIMIT = 50;
 
-  /* =========================
-     Generic API Call
-  ========================= */
   async function apiFetch(url, options = {}) {
     const res = await fetch(`${API_BASE}${url}`, {
       ...options,
@@ -32,36 +29,26 @@ export default function AdminDashboard() {
       }
     });
 
-    if (res.status === 401) {
-      throw new Error("Invalid admin key");
-    }
+    const data = await res.json().catch(() => ({}));
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "Request failed");
+    if (!res.ok) {
+      throw new Error(data.message || "Request failed");
+    }
 
     return data;
   }
 
-  /* =========================
-     Fetch Stats
-  ========================= */
   async function fetchStats() {
-    const data = await apiFetch("/api/admin/stats");
+    const data = await apiFetch("/admin/stats");
     setStats(data);
   }
 
-  /* =========================
-     Fetch QRs
-  ========================= */
   async function fetchQrs(pageNumber = 1) {
-    const data = await apiFetch(`/api/admin/qrs?page=${pageNumber}`);
+    const data = await apiFetch(`/admin/qrs?page=${pageNumber}`);
     setQrs(data.data || []);
     setTotal(data.total || 0);
   }
 
-  /* =========================
-     Init
-  ========================= */
   useEffect(() => {
     async function init() {
       try {
@@ -79,14 +66,11 @@ export default function AdminDashboard() {
     init();
   }, [page]);
 
-  /* =========================
-     Generate Batch
-  ========================= */
   async function handleGenerateBatch() {
     if (!batchQty) return alert("Enter quantity");
 
     try {
-      await apiFetch("/api/admin/generate-batch", {
+      await apiFetch("/admin/generate-batch", {
         method: "POST",
         body: JSON.stringify({ quantity: Number(batchQty) })
       });
@@ -100,15 +84,12 @@ export default function AdminDashboard() {
     }
   }
 
-  /* =========================
-     Extend Subscription
-  ========================= */
   async function handleExtendSubscription() {
     if (!subscriptionCode || !subscriptionYears || !subscriptionPrice)
       return alert("All fields required");
 
     try {
-      await apiFetch(`/api/admin/subscription/${subscriptionCode.toUpperCase()}`, {
+      await apiFetch(`/admin/subscription/${subscriptionCode.toUpperCase()}`, {
         method: "POST",
         body: JSON.stringify({
           years: Number(subscriptionYears),
@@ -138,7 +119,6 @@ export default function AdminDashboard() {
     <div style={{ padding: 40 }}>
       <h1>Admin Dashboard</h1>
 
-      {/* STATS */}
       <div style={{ marginBottom: 40 }}>
         <h2>System Stats</h2>
         <p>Active: {stats?.active}</p>
@@ -148,7 +128,6 @@ export default function AdminDashboard() {
         <p>Total Revenue: ₹{stats?.total_revenue}</p>
       </div>
 
-      {/* GENERATE */}
       <div style={{ marginBottom: 40 }}>
         <h2>Generate QR Batch</h2>
         <input
@@ -162,7 +141,6 @@ export default function AdminDashboard() {
         </button>
       </div>
 
-      {/* SUBSCRIPTION */}
       <div style={{ marginBottom: 40 }}>
         <h2>Activate / Extend Subscription</h2>
 
@@ -191,7 +169,6 @@ export default function AdminDashboard() {
         </button>
       </div>
 
-      {/* QR LIST */}
       <div>
         <h2>QR Codes</h2>
 
@@ -227,10 +204,7 @@ export default function AdminDashboard() {
         </table>
 
         <div style={{ marginTop: 20 }}>
-          <button
-            disabled={page === 1}
-            onClick={() => setPage(page - 1)}
-          >
+          <button disabled={page === 1} onClick={() => setPage(page - 1)}>
             Previous
           </button>
 
