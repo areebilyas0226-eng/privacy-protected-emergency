@@ -1,8 +1,6 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-console.log("RUNTIME ADMIN_KEY:", process.env.ADMIN_KEY);
-
 /* =========================
    IMPORTS
 ========================= */
@@ -19,23 +17,19 @@ import maskedRoutes from "./routes/masked.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 
 /* =========================
-   ENV VALIDATION
+   BASIC ENV LOG (Temporary Debug)
+========================= */
+console.log("Runtime ADMIN_KEY loaded:", !!process.env.ADMIN_KEY);
+
+/* =========================
+   PORT
 ========================= */
 const PORT = process.env.PORT || 8080;
-
-if (!process.env.DATABASE_URL) {
-  console.error("DATABASE_URL is not defined");
-  process.exit(1);
-}
 
 /* =========================
    APP INIT
 ========================= */
 const app = express();
-
-/* =========================
-   TRUST PROXY (Railway Required)
-========================= */
 app.set("trust proxy", 1);
 
 /* =========================
@@ -103,28 +97,20 @@ app.get("/", (req, res) => {
 });
 
 /* =========================
-   HEALTH CHECK (Railway Critical)
+   HEALTH CHECK
 ========================= */
 app.get("/health", async (req, res) => {
   try {
     await pool.query("SELECT 1");
-    res.status(200).json({
-      status: "ok",
-      db: "connected",
-      uptime: process.uptime(),
-      timestamp: new Date().toISOString()
-    });
+    res.status(200).json({ status: "ok" });
   } catch (err) {
-    console.error("Health check DB error:", err);
-    res.status(500).json({
-      status: "error",
-      db: "disconnected"
-    });
+    console.error("Health DB error:", err);
+    res.status(500).json({ status: "db_error" });
   }
 });
 
 /* =========================
-   404 HANDLER
+   404
 ========================= */
 app.use((req, res) => {
   res.status(404).json({ error: "Route not found" });
@@ -141,20 +127,17 @@ app.use((err, req, res, next) => {
 /* =========================
    START SERVER
 ========================= */
-let server;
-
 const startServer = async () => {
   try {
     await pool.query("SELECT 1");
-    console.log("Database connected successfully");
-
-    server = app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on port ${PORT}`);
-    });
+    console.log("Database connected");
   } catch (err) {
-    console.error("Failed to connect to database:", err);
-    process.exit(1);
+    console.error("Database connection failed (continuing):", err);
   }
+
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on port ${PORT}`);
+  });
 };
 
 startServer();
@@ -165,18 +148,14 @@ startServer();
 const shutdown = async () => {
   console.log("Shutdown signal received");
 
-  if (server) {
-    server.close(async () => {
-      try {
-        await pool.end();
-        console.log("Database pool closed");
-        process.exit(0);
-      } catch (err) {
-        console.error("Error during shutdown:", err);
-        process.exit(1);
-      }
-    });
+  try {
+    await pool.end();
+    console.log("Database pool closed");
+  } catch (err) {
+    console.error("Shutdown DB error:", err);
   }
+
+  process.exit(0);
 };
 
 process.on("SIGTERM", shutdown);
