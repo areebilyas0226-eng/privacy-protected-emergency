@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
+import helmet from "helmet";
 
 import pool from "./db.js";
 import qrRoutes from "./routes/qr.routes.js";
@@ -17,10 +18,12 @@ const app = express();
 /* =========================
    CONFIG
 ========================= */
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8080;
 
-console.log("Environment PORT:", process.env.PORT);
-console.log("Server will run on:", PORT);
+if (!process.env.DATABASE_URL) {
+  console.error("DATABASE_URL is not defined");
+  process.exit(1);
+}
 
 /* =========================
    TRUST PROXY
@@ -28,14 +31,27 @@ console.log("Server will run on:", PORT);
 app.set("trust proxy", 1);
 
 /* =========================
-   CORS
+   SECURITY
 ========================= */
+app.use(helmet());
+
+/* =========================
+   CORS (Production Safe)
+========================= */
+const allowedOrigins = [
+  "http://localhost:5173",
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "https://your-frontend-domain.com"
-    ],
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true
   })
 );
@@ -48,14 +64,14 @@ app.use(express.json({ limit: "10kb" }));
 /* =========================
    RATE LIMITING
 ========================= */
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200,
-  standardHeaders: true,
-  legacyHeaders: false
-});
-
-app.use(globalLimiter);
+app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 200,
+    standardHeaders: true,
+    legacyHeaders: false
+  })
+);
 
 const adminLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -79,14 +95,23 @@ app.get("/", (req, res) => {
 });
 
 /* =========================
-   HEALTH CHECK (CRITICAL FOR RAILWAY)
+   HEALTH CHECK
 ========================= */
-app.get("/health", (req, res) => {
-  res.status(200).json({
-    status: "ok",
-    uptime: process.uptime(),
-    timestamp: new Date().toISOString()
-  });
+app.get("/health", async (req, res) => {
+  try {
+    await pool.query("SELECT 1");
+    res.status(200).json({
+      status: "ok",
+      uptime: process.uptime(),
+      db: "connected",
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    res.status(500).json({
+      status: "error",
+      db: "disconnected"
+    });
+  }
 });
 
 /* =========================
@@ -107,24 +132,33 @@ app.use((err, req, res, next) => {
 /* =========================
    START SERVER
 ========================= */
-const server = app.listen(PORT, "0.0.0.0",  () => {
-  console.log(`Server running on port ${PORT}`);
+const server = app.listen(PORT, "0.0.0.0", async () => {
+  try {
+    await pool.query("SELECT 1");
+    console.log(`Server running on port ${PORT}`);
+    console.log("Database connected successfully");
+  } catch (err) {
+    console.error("Database connection failed:", err);
+    process.exit(1);
+  }
 });
 
 /* =========================
    GRACEFUL SHUTDOWN
 ========================= */
-process.on("SIGTERM", () => {
-  console.log("SIGTERM received. Shutting down gracefully...");
-  server.close(() => {
-    pool.end().then(() => {
+const shutdown = async () => {
+  console.log("Shutting down...");
+  server.close(async () => {
+    try {
+      await pool.end();
       console.log("Database pool closed.");
       process.exit(0);
-    });
+    } catch (err) {
+      console.error("Error closing DB pool:", err);
+      process.exit(1);
+    }
   });
-});
+};
 
-process.on("SIGINT", () => {
-  console.log("SIGINT received. Exiting...");
-  process.exit(0);
-});
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
