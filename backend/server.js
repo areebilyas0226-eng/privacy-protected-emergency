@@ -107,6 +107,16 @@ app.get("/health", (req, res) => {
 });
 
 /* =========================
+   DEBUG KEY ENDPOINT (TEMP)
+========================= */
+app.get("/debug-key", (req, res) => {
+  res.json({
+    envKey: process.env.ADMIN_KEY || null,
+    length: process.env.ADMIN_KEY ? process.env.ADMIN_KEY.length : 0
+  });
+});
+
+/* =========================
    404
 ========================= */
 app.use((req, res) => {
