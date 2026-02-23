@@ -15,6 +15,7 @@ import emergencyRoutes from "./routes/emergency.routes.js";
 import otpRoutes from "./routes/otp.routes.js";
 import maskedRoutes from "./routes/masked.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
+import profileRoutes from "./routes/profile.routes.js";
 
 /* =========================
    ENV VALIDATION
@@ -25,13 +26,6 @@ if (!PORT) {
   console.error("PORT not provided by environment");
   process.exit(1);
 }
-
-/* =========================
-   STARTUP DEBUG
-========================= */
-console.log("Environment:", process.env.NODE_ENV || "development");
-console.log("PORT:", PORT);
-console.log("ADMIN_KEY loaded:", !!process.env.ADMIN_KEY);
 
 /* =========================
    APP INIT
@@ -71,7 +65,7 @@ app.use(
 app.use(express.json({ limit: "10kb" }));
 
 /* =========================
-   RATE LIMITING
+   GLOBAL RATE LIMIT
 ========================= */
 app.use(
   rateLimit({
@@ -91,6 +85,7 @@ const adminLimiter = rateLimit({
    ROUTES
 ========================= */
 app.use("/api/qr", qrRoutes(pool));
+app.use("/api/profile", profileRoutes(pool));   // ✅ unified profile route
 app.use("/api/emergency", emergencyRoutes(pool));
 app.use("/api/otp", otpRoutes(pool));
 app.use("/api/masked", maskedRoutes(pool));
