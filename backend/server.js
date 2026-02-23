@@ -91,6 +91,51 @@ app.use("/api/otp", otpRoutes(pool));
 app.use("/api/masked", maskedRoutes(pool));
 app.use("/api/admin", adminLimiter, adminRoutes(pool));
 
+
+/* =========================
+   PUBLIC QR LINK
+========================= */
+app.get("/p/:qrId", async (req, res) => {
+  const { qrId } = req.params;
+
+  try {
+    // 1️⃣ Find QR mapping
+    const qrResult = await pool.query(
+      "SELECT profile_type, profile_id FROM qr_tags WHERE qr_id = $1",
+      [qrId]
+    );
+
+    if (!qrResult.rows.length) {
+      return res.status(404).json({ error: "QR not found" });
+    }
+
+    const { profile_type, profile_id } = qrResult.rows[0];
+
+    // 2️⃣ Resolve correct table
+    const table =
+      profile_type === "vehicle"
+        ? "vehicle_profiles"
+        : "pet_profiles";
+
+    // 3️⃣ Fetch profile
+    const profileResult = await pool.query(
+      `SELECT * FROM ${table} WHERE id = $1`,
+      [profile_id]
+    );
+
+    if (!profileResult.rows.length) {
+      return res.status(404).json({ error: "Profile not found" });
+    }
+
+    res.json(profileResult.rows[0]);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+
 /* =========================
    ROOT
 ========================= */
