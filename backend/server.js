@@ -18,14 +18,9 @@ import adminRoutes from "./routes/admin.routes.js";
 import profileRoutes from "./routes/profiles.routes.js";
 
 /* =========================
-   ENV VALIDATION
+   PORT (Railway Safe)
 ========================= */
-const PORT = process.env.PORT;
-
-if (!PORT) {
-  console.error("PORT not provided by environment");
-  process.exit(1);
-}
+const PORT = process.env.PORT || 5000;
 
 /* =========================
    APP INIT
@@ -84,7 +79,6 @@ const adminLimiter = rateLimit({
 /* =========================
    ROUTES
 ========================= */
-
 app.use("/api/qr", qrRoutes(pool));
 app.use("/api/profile", profileRoutes(pool));
 app.use("/api/emergency", emergencyRoutes(pool));
@@ -100,7 +94,7 @@ app.get("/", (req, res) => {
 });
 
 /* =========================
-   HEALTH CHECK (Railway)
+   HEALTH CHECK
 ========================= */
 app.get("/health", (req, res) => {
   res.status(200).json({
