@@ -48,7 +48,7 @@ export default function qrRoutes(pool) {
       if (err.code === "23505")
         return res.status(400).json({ message: "QR already exists" });
 
-      console.error(err);
+      console.error("CREATE QR ERROR:", err);
       res.status(500).json({ message: "Server error" });
     }
   });
@@ -58,8 +58,15 @@ export default function qrRoutes(pool) {
      /api/qr/p/:code
   ========================= */
   router.get("/p/:code", async (req, res) => {
-    const code = normalize(req.params.code);
-    if (!code) return res.status(400).json({ message: "Invalid QR code" });
+    const rawCode = req.params.code;
+    const code = normalize(rawCode);
+
+    console.log("---- PUBLIC RESOLVER HIT ----");
+    console.log("Raw param:", rawCode);
+    console.log("Normalized:", code);
+
+    if (!code)
+      return res.status(400).json({ message: "Invalid QR code" });
 
     try {
       const qrResult = await pool.query(
@@ -70,6 +77,8 @@ export default function qrRoutes(pool) {
            AND (expires_at IS NULL OR expires_at > NOW())`,
         [code]
       );
+
+      console.log("QR query result:", qrResult.rows);
 
       if (!qrResult.rows.length)
         return res.status(404).json({ message: "QR not found or inactive" });
@@ -84,6 +93,8 @@ export default function qrRoutes(pool) {
            WHERE qr_tag_id = $1`,
           [qr.id]
         );
+
+        console.log("Vehicle profile result:", r.rows);
         profile = r.rows[0];
       }
 
@@ -94,6 +105,8 @@ export default function qrRoutes(pool) {
            WHERE qr_tag_id = $1`,
           [qr.id]
         );
+
+        console.log("Pet profile result:", r.rows);
         profile = r.rows[0];
       }
 
@@ -108,7 +121,7 @@ export default function qrRoutes(pool) {
 
       res.json({ type: qr.type, data: profile });
     } catch (err) {
-      console.error(err);
+      console.error("PUBLIC RESOLVER ERROR:", err);
       res.status(500).json({ message: "Server error" });
     }
   });
@@ -118,7 +131,9 @@ export default function qrRoutes(pool) {
   ========================= */
   router.get("/:code", async (req, res) => {
     const code = normalize(req.params.code);
-    if (!code) return res.status(400).json({ message: "Invalid QR code" });
+
+    if (!code)
+      return res.status(400).json({ message: "Invalid QR code" });
 
     try {
       const result = await pool.query(
@@ -131,7 +146,7 @@ export default function qrRoutes(pool) {
 
       res.json(result.rows[0]);
     } catch (err) {
-      console.error(err);
+      console.error("ADMIN FETCH ERROR:", err);
       res.status(500).json({ message: "Server error" });
     }
   });
