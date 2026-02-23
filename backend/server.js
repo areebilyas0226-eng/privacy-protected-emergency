@@ -20,21 +20,13 @@ import adminRoutes from "./routes/admin.routes.js";
    STARTUP DEBUG
 ========================= */
 console.log("Working directory:", process.cwd());
+console.log("PORT from Railway:", process.env.PORT);
 console.log("ADMIN_KEY loaded:", !!process.env.ADMIN_KEY);
-console.log(
-  "ADMIN_KEY length:",
-  process.env.ADMIN_KEY ? process.env.ADMIN_KEY.length : 0
-);
 
 /* =========================
-   PORT
+   PORT (Railway injected)
 ========================= */
-const PORT = process.env.PORT;
-
-if (!PORT) {
-  console.error("PORT not provided by Railway");
-  process.exit(1);
-}
+const PORT = Number(process.env.PORT);
 
 /* =========================
    APP INIT
@@ -107,25 +99,12 @@ app.get("/", (req, res) => {
 });
 
 /* =========================
-   HEALTH CHECK (NO DB)
+   HEALTH CHECK
 ========================= */
 app.get("/health", (req, res) => {
   res.status(200).json({
     status: "ok",
     uptime: process.uptime()
-  });
-});
-
-/* =========================
-   DEBUG KEY (TEMP ONLY)
-========================= */
-app.get("/debug-key", (req, res) => {
-  res.json({
-    loaded: !!process.env.ADMIN_KEY,
-    value: process.env.ADMIN_KEY || null,
-    length: process.env.ADMIN_KEY
-      ? process.env.ADMIN_KEY.length
-      : 0
   });
 });
 
