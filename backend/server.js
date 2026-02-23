@@ -15,7 +15,7 @@ import emergencyRoutes from "./routes/emergency.routes.js";
 import otpRoutes from "./routes/otp.routes.js";
 import maskedRoutes from "./routes/masked.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
-import profileRoutes from "./routes/profile.routes.js";
+import profileRoutes from "./routes/profiles.routes.js";
 
 /* =========================
    ENV VALIDATION
