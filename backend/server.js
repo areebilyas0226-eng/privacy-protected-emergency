@@ -29,7 +29,12 @@ console.log(
 /* =========================
    PORT
 ========================= */
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT;
+
+if (!PORT) {
+  console.error("PORT not provided by Railway");
+  process.exit(1);
+}
 
 /* =========================
    APP INIT
