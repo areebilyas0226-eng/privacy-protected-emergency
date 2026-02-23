@@ -17,9 +17,14 @@ import maskedRoutes from "./routes/masked.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 
 /* =========================
-   DEBUG
+   STARTUP DEBUG
 ========================= */
-console.log("Runtime ADMIN_KEY loaded:", !!process.env.ADMIN_KEY);
+console.log("Working directory:", process.cwd());
+console.log("ADMIN_KEY loaded:", !!process.env.ADMIN_KEY);
+console.log(
+  "ADMIN_KEY length:",
+  process.env.ADMIN_KEY ? process.env.ADMIN_KEY.length : 0
+);
 
 /* =========================
    PORT
@@ -107,12 +112,15 @@ app.get("/health", (req, res) => {
 });
 
 /* =========================
-   DEBUG KEY ENDPOINT (TEMP)
+   DEBUG KEY (TEMP ONLY)
 ========================= */
 app.get("/debug-key", (req, res) => {
   res.json({
-    envKey: process.env.ADMIN_KEY || null,
-    length: process.env.ADMIN_KEY ? process.env.ADMIN_KEY.length : 0
+    loaded: !!process.env.ADMIN_KEY,
+    value: process.env.ADMIN_KEY || null,
+    length: process.env.ADMIN_KEY
+      ? process.env.ADMIN_KEY.length
+      : 0
   });
 });
 
@@ -124,7 +132,7 @@ app.use((req, res) => {
 });
 
 /* =========================
-   GLOBAL ERROR HANDLER
+   ERROR HANDLER
 ========================= */
 app.use((err, req, res, next) => {
   console.error("Unhandled Error:", err);
