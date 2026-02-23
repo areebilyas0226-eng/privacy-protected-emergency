@@ -18,7 +18,7 @@ import adminRoutes from "./routes/admin.routes.js";
 import profileRoutes from "./routes/profiles.routes.js";
 
 /* =========================
-   PORT (Railway Safe)
+   PORT
 ========================= */
 const PORT = process.env.PORT || 5000;
 
@@ -60,9 +60,28 @@ app.use(
 app.use(express.json({ limit: "10kb" }));
 
 /* =========================
-   GLOBAL RATE LIMIT
+   ROOT (Before rate limit)
+========================= */
+app.get("/", (req, res) => {
+  res.status(200).json({ message: "API running" });
+});
+
+/* =========================
+   HEALTH CHECK (Before rate limit)
+========================= */
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    uptime: process.uptime()
+  });
+});
+
+/* =========================
+   GLOBAL API RATE LIMIT
+   (Apply only to /api)
 ========================= */
 app.use(
+  "/api",
   rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 200,
@@ -85,23 +104,6 @@ app.use("/api/emergency", emergencyRoutes(pool));
 app.use("/api/otp", otpRoutes(pool));
 app.use("/api/masked", maskedRoutes(pool));
 app.use("/api/admin", adminLimiter, adminRoutes(pool));
-
-/* =========================
-   ROOT
-========================= */
-app.get("/", (req, res) => {
-  res.status(200).json({ message: "API running" });
-});
-
-/* =========================
-   HEALTH CHECK
-========================= */
-app.get("/health", (req, res) => {
-  res.status(200).json({
-    status: "ok",
-    uptime: process.uptime()
-  });
-});
 
 /* =========================
    404 HANDLER
