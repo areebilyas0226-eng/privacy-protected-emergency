@@ -70,7 +70,90 @@ export default function qrRoutes(pool) {
   });
 
   /* =========================
-     Get QR (Validated + Auto Log)
+     Public QR Resolver
+     /api/qr/p/:code
+  ========================= */
+  router.get("/p/:code", async (req, res) => {
+    const code = normalize(req.params.code);
+
+    if (!code)
+      return res.status(400).json({ message: "Invalid QR code" });
+
+    try {
+      // 1️⃣ Fetch QR
+      const qrResult = await pool.query(
+        `
+        SELECT *
+        FROM qr_tags
+        WHERE qr_code = $1
+          AND status = 'active'
+          AND (expires_at IS NULL OR expires_at > NOW())
+        `,
+        [code]
+      );
+
+      if (!qrResult.rows.length)
+        return res.status(404).json({
+          message: "QR not found or inactive"
+        });
+
+      const qr = qrResult.rows[0];
+      let profile;
+
+      // 2️⃣ Resolve profile via qr_tag_id
+      if (qr.type === "vehicle") {
+        const vehicleResult = await pool.query(
+          `
+          SELECT vehicle_number, model, blood_group
+          FROM vehicle_profiles
+          WHERE qr_tag_id = $1
+          `,
+          [qr.id]
+        );
+
+        profile = vehicleResult.rows[0];
+      }
+
+      if (qr.type === "pet") {
+        const petResult = await pool.query(
+          `
+          SELECT pet_name, breed
+          FROM pet_profiles
+          WHERE qr_tag_id = $1
+          `,
+          [qr.id]
+        );
+
+        profile = petResult.rows[0];
+      }
+
+      if (!profile)
+        return res.status(404).json({
+          message: "Profile not found"
+        });
+
+      // 3️⃣ Non-blocking log
+      pool.query(
+        `
+        INSERT INTO emergency_logs (qr_tag_id, action_type, caller_ip)
+        VALUES ($1, 'view', $2)
+        `,
+        [qr.id, getClientIP(req)]
+      ).catch(console.error);
+
+      return res.json({
+        type: qr.type,
+        data: profile
+      });
+
+    } catch (err) {
+      console.error("Public QR error:", err);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  /* =========================
+     Admin Fetch QR
   ========================= */
   router.get("/:code", async (req, res) => {
     const code = normalize(req.params.code);
@@ -81,44 +164,17 @@ export default function qrRoutes(pool) {
     try {
       const result = await pool.query(
         `
-        SELECT 
-          q.id,
-          q.qr_code,
-          q.type,
-          q.status,
-          q.activated_at,
-          q.expires_at,
-          v.vehicle_number,
-          v.owner_mobile,
-          v.blood_group,
-          v.model
-        FROM qr_tags q
-        LEFT JOIN vehicle_profiles v
-          ON q.id = v.qr_tag_id
-        WHERE q.qr_code = $1
-          AND q.status = 'active'
-          AND (q.expires_at IS NULL OR q.expires_at > NOW())
+        SELECT *
+        FROM qr_tags
+        WHERE qr_code = $1
         `,
         [code]
       );
 
       if (!result.rows.length)
-        return res.status(403).json({
-          message: "QR invalid, inactive, or expired"
-        });
+        return res.status(404).json({ message: "QR not found" });
 
-      const qr = result.rows[0];
-
-      // Non-blocking view log
-      pool.query(
-        `
-        INSERT INTO emergency_logs (qr_tag_id, action_type, caller_ip)
-        VALUES ($1, 'view', $2)
-        `,
-        [qr.id, getClientIP(req)]
-      ).catch(console.error);
-
-      return res.json(qr);
+      return res.json(result.rows[0]);
 
     } catch (err) {
       console.error("Fetch QR error:", err);
@@ -127,7 +183,7 @@ export default function qrRoutes(pool) {
   });
 
   /* =========================
-     Contact Owner (Spam Protected)
+     Contact Owner (Rate Limited)
   ========================= */
   router.post("/:code/contact", async (req, res) => {
     const code = normalize(req.params.code);
@@ -155,7 +211,7 @@ export default function qrRoutes(pool) {
 
       if (!qrResult.rows.length)
         return res.status(403).json({
-          message: "QR invalid, inactive, or expired"
+          message: "QR invalid or inactive"
         });
 
       const qrId = qrResult.rows[0].id;
