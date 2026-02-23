@@ -17,16 +17,21 @@ import maskedRoutes from "./routes/masked.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 
 /* =========================
-   STARTUP DEBUG
+   ENV VALIDATION
 ========================= */
-console.log("Working directory:", process.cwd());
-console.log("PORT from Railway:", process.env.PORT);
-console.log("ADMIN_KEY loaded:", !!process.env.ADMIN_KEY);
+const PORT = process.env.PORT;
+
+if (!PORT) {
+  console.error("PORT not provided by environment");
+  process.exit(1);
+}
 
 /* =========================
-   PORT (Railway injected)
+   STARTUP DEBUG
 ========================= */
-const PORT = Number(process.env.PORT);
+console.log("Environment:", process.env.NODE_ENV || "development");
+console.log("PORT:", PORT);
+console.log("ADMIN_KEY loaded:", !!process.env.ADMIN_KEY);
 
 /* =========================
    APP INIT
@@ -131,7 +136,7 @@ const startServer = async () => {
     await pool.query("SELECT 1");
     console.log("Database connected");
   } catch (err) {
-    console.error("Database connection failed (continuing):", err);
+    console.error("Database connection failed:", err);
   }
 
   app.listen(PORT, "0.0.0.0", () => {
