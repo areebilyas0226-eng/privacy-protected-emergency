@@ -5,18 +5,6 @@ import adminAuth from "../middleware/adminAuth.js";
 export default function adminRoutes(pool) {
   const router = express.Router();
 
-  /* ===============================
-     Helpers
-  =============================== */
-
-  function normalize(code) {
-    return code?.trim().toUpperCase();
-  }
-
-  function isValidUUID(val) {
-    return /^[0-9a-fA-F-]{36}$/.test(val);
-  }
-
   router.use(adminAuth);
 
   /* ===============================
@@ -24,6 +12,8 @@ export default function adminRoutes(pool) {
   =============================== */
   router.post("/generate-batch", async (req, res) => {
     const quantity = parseInt(req.body.quantity);
+    const batch_name = req.body.batch_name || `Batch-${Date.now()}`;
+    const agent_name = req.body.agent_name || null;
 
     if (!quantity || quantity < 1 || quantity > 5000) {
       return res.status(400).json({
@@ -36,29 +26,37 @@ export default function adminRoutes(pool) {
     try {
       await client.query("BEGIN");
 
-      const codes = [];
+      // 1. Create batch record
+      const batchResult = await client.query(
+        `
+        INSERT INTO qr_batches (batch_name, agent_name, quantity)
+        VALUES ($1, $2, $3)
+        RETURNING *
+        `,
+        [batch_name, agent_name, quantity]
+      );
 
+      const batch = batchResult.rows[0];
+
+      // 2. Insert QR codes
       for (let i = 0; i < quantity; i++) {
         const qr_code = uuidv4().toUpperCase();
 
         await client.query(
           `
           INSERT INTO qr_tags 
-          (qr_code, type, status, plan_type, price_paid)
-          VALUES ($1, 'vehicle', 'inactive', 'yearly', 0)
+          (qr_code, type, status, plan_type, price_paid, batch_id)
+          VALUES ($1, 'vehicle', 'inactive', 'yearly', 0, $2)
           `,
-          [qr_code]
+          [qr_code, batch.id]
         );
-
-        codes.push(qr_code);
       }
 
       await client.query("COMMIT");
 
       return res.json({
         message: "Batch generated",
-        count: quantity,
-        codes
+        data: batch
       });
 
     } catch (err) {
@@ -71,34 +69,23 @@ export default function adminRoutes(pool) {
   });
 
   /* ===============================
-     2️⃣ CREATE ORDER
+     2️⃣ LIST BATCHES  (FIXED)
   =============================== */
-  router.post("/orders", async (req, res) => {
-    const { customer_name, mobile, quantity } = req.body;
-
-    if (!customer_name || !mobile || !quantity) {
-      return res.status(400).json({ message: "Missing fields" });
-    }
-
+  router.get("/batches", async (req, res) => {
     try {
-      const result = await pool.query(
-        `
-        INSERT INTO tag_orders 
-        (customer_name, mobile, quantity_ordered)
-        VALUES ($1, $2, $3)
-        RETURNING *
-        `,
-        [customer_name, mobile, quantity]
-      );
+      const result = await pool.query(`
+        SELECT *
+        FROM qr_batches
+        ORDER BY created_at DESC
+      `);
 
       return res.json({
-        message: "Order created",
-        data: result.rows[0]
+        data: result.rows
       });
 
     } catch (err) {
       console.error(err);
-      return res.status(500).json({ message: "Order creation failed" });
+      return res.status(500).json({ message: "Failed to fetch batches" });
     }
   });
 
@@ -128,10 +115,11 @@ export default function adminRoutes(pool) {
         SELECT 
           q.qr_code,
           q.status,
-          q.plan_type,
-          q.expires_at,
+          b.batch_name,
           q.created_at
         FROM qr_tags q
+        LEFT JOIN qr_batches b
+          ON q.batch_id = b.id
         ORDER BY q.created_at DESC
         LIMIT 500
       `);
@@ -141,155 +129,6 @@ export default function adminRoutes(pool) {
     } catch (err) {
       console.error(err);
       return res.status(500).json({ message: "Failed to fetch inventory" });
-    }
-  });
-
-  /* ===============================
-     5️⃣ ACTIVATE / EXTEND SUBSCRIPTION
-  =============================== */
-  router.post("/subscription/:code", async (req, res) => {
-    const code = normalize(req.params.code);
-    const years = parseInt(req.body.years);
-    const price_paid = parseFloat(req.body.price_paid);
-
-    if (!isValidUUID(code)) {
-      return res.status(400).json({ message: "Invalid QR format" });
-    }
-
-    if (!years || years < 1) {
-      return res.status(400).json({ message: "Valid years required" });
-    }
-
-    if (price_paid === undefined || price_paid < 0) {
-      return res.status(400).json({ message: "Valid price required" });
-    }
-
-    const client = await pool.connect();
-
-    try {
-      await client.query("BEGIN");
-
-      const result = await client.query(
-        `
-        UPDATE qr_tags
-        SET 
-          status = 'active',
-          subscription_started_at = COALESCE(subscription_started_at, NOW()),
-          activated_at = COALESCE(activated_at, NOW()),
-          price_paid = COALESCE(price_paid, 0) + $3,
-          expires_at =
-            CASE
-              WHEN expires_at IS NULL OR expires_at < NOW()
-              THEN NOW() + ($2 * INTERVAL '1 year')
-              ELSE expires_at + ($2 * INTERVAL '1 year')
-            END
-        WHERE qr_code = $1
-        RETURNING *
-        `,
-        [code, years, price_paid]
-      );
-
-      if (!result.rows.length) {
-        await client.query("ROLLBACK");
-        return res.status(404).json({ message: "QR not found" });
-      }
-
-      const qr = result.rows[0];
-
-      await client.query(
-        `
-        INSERT INTO subscription_logs 
-        (qr_tag_id, years_added, amount_paid)
-        VALUES ($1, $2, $3)
-        `,
-        [qr.id, years, price_paid]
-      );
-
-      await client.query("COMMIT");
-
-      return res.json({
-        message: "Subscription updated",
-        data: qr
-      });
-
-    } catch (error) {
-      await client.query("ROLLBACK");
-      console.error(error);
-      return res.status(500).json({ message: "Server error" });
-    } finally {
-      client.release();
-    }
-  });
-
-  /* ===============================
-     6️⃣ LIST QR CODES (Paginated)
-  =============================== */
-  router.get("/qrs", async (req, res) => {
-    const page = Math.max(parseInt(req.query.page) || 1, 1);
-    const limit = 50;
-    const offset = (page - 1) * limit;
-
-    try {
-      const [data, total] = await Promise.all([
-        pool.query(
-          `
-          SELECT 
-            q.qr_code,
-            q.status,
-            q.plan_type,
-            q.price_paid,
-            q.activated_at,
-            q.expires_at,
-            q.created_at,
-            v.vehicle_number,
-            v.owner_mobile
-          FROM qr_tags q
-          LEFT JOIN vehicle_profiles v
-            ON q.id = v.qr_tag_id
-          ORDER BY q.created_at DESC
-          LIMIT $1 OFFSET $2
-          `,
-          [limit, offset]
-        ),
-        pool.query(`SELECT COUNT(*) FROM qr_tags`)
-      ]);
-
-      return res.json({
-        page,
-        total: parseInt(total.rows[0].count),
-        data: data.rows
-      });
-
-    } catch (error) {
-      console.error(error);
-      return res.status(500).json({ message: "Server error" });
-    }
-  });
-
-  /* ===============================
-     7️⃣ DASHBOARD STATS
-  =============================== */
-  router.get("/stats", async (req, res) => {
-    try {
-      const stats = await pool.query(`
-        SELECT
-          COUNT(*) FILTER (WHERE status = 'active') AS active,
-          COUNT(*) FILTER (WHERE status = 'inactive') AS inactive,
-          COUNT(*) FILTER (
-            WHERE status = 'active'
-            AND expires_at IS NOT NULL
-            AND expires_at < NOW()
-          ) AS expired,
-          COUNT(*) AS total,
-          COALESCE(SUM(price_paid), 0) AS total_revenue
-        FROM qr_tags
-      `);
-
-      return res.json(stats.rows[0]);
-
-    } catch (err) {
-      console.error(err);
-      return res.status(500).json({ message: "Server error" });
     }
   });
 
