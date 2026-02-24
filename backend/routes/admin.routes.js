@@ -8,6 +8,17 @@ export default function adminRoutes(pool) {
   const router = express.Router();
 
   /* ===============================
+     ENV VALIDATION (FAIL FAST)
+  =============================== */
+  if (
+    !process.env.ADMIN_EMAIL ||
+    !process.env.ADMIN_PASSWORD_HASH ||
+    !process.env.JWT_SECRET
+  ) {
+    throw new Error("Missing required admin environment variables");
+  }
+
+  /* ===============================
      LOGIN (PUBLIC)
   =============================== */
   router.post("/login", async (req, res) => {
@@ -20,15 +31,15 @@ export default function adminRoutes(pool) {
           .json({ message: "Email and password required" });
       }
 
-      // Case-insensitive email check
+      const normalizedEmail = email.trim().toLowerCase();
+
       if (
-        email.toLowerCase() !==
-        process.env.ADMIN_EMAIL.toLowerCase()
+        normalizedEmail !==
+        process.env.ADMIN_EMAIL.trim().toLowerCase()
       ) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
-      // Compare bcrypt hash
       const isMatch = await bcrypt.compare(
         password,
         process.env.ADMIN_PASSWORD_HASH
@@ -41,7 +52,10 @@ export default function adminRoutes(pool) {
       const token = jwt.sign(
         { role: "admin" },
         process.env.JWT_SECRET,
-        { expiresIn: "1h" }
+        {
+          expiresIn: "1h",
+          algorithm: "HS256"
+        }
       );
 
       res.cookie("admin_token", token, {
@@ -50,7 +64,8 @@ export default function adminRoutes(pool) {
         sameSite:
           process.env.NODE_ENV === "production"
             ? "none"
-            : "lax"
+            : "lax",
+        maxAge: 60 * 60 * 1000
       });
 
       return res.json({ message: "Login successful" });
@@ -61,7 +76,9 @@ export default function adminRoutes(pool) {
     }
   });
 
-  /* Protect everything below */
+  /* ===============================
+     PROTECT BELOW
+  =============================== */
   router.use(adminAuth);
 
   /* ===============================
@@ -81,15 +98,15 @@ export default function adminRoutes(pool) {
   });
 
   /* ===============================
-     GENERATE BATCH
+     GENERATE BATCH (OPTIMIZED)
   =============================== */
   router.post("/generate-batch", async (req, res) => {
-    const quantity = parseInt(req.body.quantity);
+    const quantity = Number(req.body.quantity);
     const batch_name =
       req.body.batch_name || `Batch-${Date.now()}`;
     const agent_name = req.body.agent_name || null;
 
-    if (!quantity || quantity < 1 || quantity > 5000) {
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 5000) {
       return res.status(400).json({
         message: "Valid quantity required (1–5000)"
       });
@@ -111,18 +128,28 @@ export default function adminRoutes(pool) {
 
       const batch = batchResult.rows[0];
 
+      // BULK INSERT
+      const values = [];
+      const placeholders = [];
+
       for (let i = 0; i < quantity; i++) {
         const qr_code = uuidv4().toUpperCase();
+        values.push(qr_code, batch.id);
 
-        await client.query(
-          `
-          INSERT INTO qr_tags 
-          (qr_code, type, status, plan_type, price_paid, batch_id)
-          VALUES ($1, 'vehicle', 'inactive', 'yearly', 0, $2)
-          `,
-          [qr_code, batch.id]
+        const index = i * 2;
+        placeholders.push(
+          `($${index + 1}, 'vehicle', 'inactive', 'yearly', 0, $${index + 2})`
         );
       }
+
+      await client.query(
+        `
+        INSERT INTO qr_tags 
+        (qr_code, type, status, plan_type, price_paid, batch_id)
+        VALUES ${placeholders.join(",")}
+        `,
+        values
+      );
 
       await client.query("COMMIT");
 
@@ -130,7 +157,7 @@ export default function adminRoutes(pool) {
 
     } catch (err) {
       await client.query("ROLLBACK");
-      console.error(err);
+      console.error("Batch error:", err);
       res.status(500).json({ message: "Batch generation failed" });
     } finally {
       client.release();
