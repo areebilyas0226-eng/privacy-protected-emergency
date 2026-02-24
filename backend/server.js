@@ -90,9 +90,10 @@ const publicLimiter = rateLimit({
 
 const adminLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: 5,
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  message: {message: "Too many login attempts"}
 });
 
 app.use("/api", publicLimiter);
