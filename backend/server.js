@@ -1,9 +1,6 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-/* =========================
-   IMPORTS
-========================= */
 import express from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
@@ -20,7 +17,7 @@ import profileRoutes from "./routes/profiles.routes.js";
 /* =========================
    PORT
 ========================= */
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8080;
 
 /* =========================
    APP INIT
@@ -34,7 +31,7 @@ app.set("trust proxy", 1);
 app.use(helmet());
 
 /* =========================
-   CORS
+   CORS (Fail-safe)
 ========================= */
 const allowedOrigins = [
   "http://localhost:5173",
@@ -45,10 +42,9 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      return callback(new Error("Not allowed by CORS"));
+      if (!origin) return callback(null, true); // allow healthchecks
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(null, false);
     },
     credentials: true
   })
@@ -60,33 +56,27 @@ app.use(
 app.use(express.json({ limit: "10kb" }));
 
 /* =========================
-   ROOT (Before rate limit)
+   ROOT (Must respond instantly)
 ========================= */
 app.get("/", (req, res) => {
-  res.status(200).json({ message: "API running" });
+  res.status(200).send("OK");
 });
 
 /* =========================
-   HEALTH CHECK (Before rate limit)
+   HEALTH CHECK
 ========================= */
 app.get("/health", (req, res) => {
-  res.status(200).json({
-    status: "ok",
-    uptime: process.uptime()
-  });
+  res.status(200).json({ status: "ok" });
 });
 
 /* =========================
-   GLOBAL API RATE LIMIT
-   (Apply only to /api)
+   RATE LIMIT (API ONLY)
 ========================= */
 app.use(
   "/api",
   rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 200,
-    standardHeaders: true,
-    legacyHeaders: false
+    max: 200
   })
 );
 
@@ -121,22 +111,30 @@ app.use((err, req, res, next) => {
 });
 
 /* =========================
-   START SERVER
+   START SERVER IMMEDIATELY
 ========================= */
-const startServer = async () => {
-  try {
-    await pool.query("SELECT 1");
-    console.log("Database connected");
-  } catch (err) {
-    console.error("Database connection failed:", err);
-  }
+const server = app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on port ${PORT}`);
+});
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on port ${PORT}`);
-  });
-};
+/* =========================
+   CONNECT DB (Non-blocking)
+========================= */
+pool
+  .query("SELECT 1")
+  .then(() => console.log("Database connected"))
+  .catch((err) => console.error("Database connection failed:", err));
 
-startServer();
+/* =========================
+   GLOBAL CRASH GUARDS
+========================= */
+process.on("unhandledRejection", (err) => {
+  console.error("Unhandled Rejection:", err);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception:", err);
+});
 
 /* =========================
    GRACEFUL SHUTDOWN
@@ -144,14 +142,15 @@ startServer();
 const shutdown = async () => {
   console.log("Shutdown signal received");
 
-  try {
-    await pool.end();
-    console.log("Database pool closed");
-  } catch (err) {
-    console.error("Shutdown DB error:", err);
-  }
-
-  process.exit(0);
+  server.close(async () => {
+    try {
+      await pool.end();
+      console.log("Database pool closed");
+    } catch (err) {
+      console.error("Shutdown DB error:", err);
+    }
+    process.exit(0);
+  });
 };
 
 process.on("SIGTERM", shutdown);
