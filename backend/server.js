@@ -15,9 +15,14 @@ import adminRoutes from "./routes/admin.routes.js";
 import profileRoutes from "./routes/profiles.routes.js";
 
 /* =========================
-   PORT
+   PORT (Railway strict)
 ========================= */
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT;
+
+if (!PORT) {
+  console.error("PORT not defined by environment");
+  process.exit(1);
+}
 
 /* =========================
    APP INIT
@@ -26,32 +31,21 @@ const app = express();
 app.set("trust proxy", 1);
 
 /* =========================
-   HEALTHCHECK MUST BE FIRST
+   HEALTHCHECK FIRST
 ========================= */
 app.get("/health", (req, res) => {
   return res.status(200).send("OK");
 });
 
-/* =========================
-   ROOT
-========================= */
 app.get("/", (req, res) => {
   return res.status(200).send("OK");
 });
 
 /* =========================
-   SECURITY
+   MIDDLEWARE
 ========================= */
 app.use(helmet());
-
-/* =========================
-   SIMPLE CORS (NO BLOCKING)
-========================= */
 app.use(cors());
-
-/* =========================
-   BODY PARSER
-========================= */
 app.use(express.json({ limit: "10kb" }));
 
 /* =========================
@@ -81,7 +75,7 @@ app.use("/api/masked", maskedRoutes(pool));
 app.use("/api/admin", adminLimiter, adminRoutes(pool));
 
 /* =========================
-   404 HANDLER
+   404
 ========================= */
 app.use((req, res) => {
   res.status(404).json({ error: "Route not found" });
@@ -96,14 +90,14 @@ app.use((err, req, res, next) => {
 });
 
 /* =========================
-   START SERVER IMMEDIATELY
+   START SERVER
 ========================= */
 const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });
 
 /* =========================
-   CONNECT DB (NON-BLOCKING)
+   DB CONNECT (NON BLOCKING)
 ========================= */
 pool
   .query("SELECT 1")
