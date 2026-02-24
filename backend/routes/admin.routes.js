@@ -5,25 +5,23 @@ import adminAuth from "../middleware/adminAuth.js";
 export default function adminRoutes(pool) {
   const router = express.Router();
 
-  /* =========================================
-     Helper: Normalize QR Code
-  ========================================= */
+  /* ===============================
+     Helpers
+  =============================== */
+
   function normalize(code) {
     return code?.trim().toUpperCase();
   }
 
   function isValidUUID(val) {
-    return /^[0-9A-F-]{36}$/.test(val);
+    return /^[0-9a-fA-F-]{36}$/.test(val);
   }
 
-  /* =========================================
-     🔐 PROTECT ALL ROUTES BELOW
-  ========================================= */
   router.use(adminAuth);
 
-  /* =========================================
+  /* ===============================
      1️⃣ GENERATE QR BATCH
-  ========================================= */
+  =============================== */
   router.post("/generate-batch", async (req, res) => {
     const quantity = parseInt(req.body.quantity);
 
@@ -72,9 +70,83 @@ export default function adminRoutes(pool) {
     }
   });
 
-  /* =========================================
-     2️⃣ ACTIVATE / EXTEND SUBSCRIPTION
-  ========================================= */
+  /* ===============================
+     2️⃣ CREATE ORDER
+  =============================== */
+  router.post("/orders", async (req, res) => {
+    const { customer_name, mobile, quantity } = req.body;
+
+    if (!customer_name || !mobile || !quantity) {
+      return res.status(400).json({ message: "Missing fields" });
+    }
+
+    try {
+      const result = await pool.query(
+        `
+        INSERT INTO tag_orders 
+        (customer_name, mobile, quantity_ordered)
+        VALUES ($1, $2, $3)
+        RETURNING *
+        `,
+        [customer_name, mobile, quantity]
+      );
+
+      return res.json({
+        message: "Order created",
+        data: result.rows[0]
+      });
+
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Order creation failed" });
+    }
+  });
+
+  /* ===============================
+     3️⃣ LIST ORDERS
+  =============================== */
+  router.get("/orders", async (req, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT * FROM tag_orders ORDER BY created_at DESC`
+      );
+
+      return res.json({ data: result.rows });
+
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Failed to fetch orders" });
+    }
+  });
+
+  /* ===============================
+     4️⃣ INVENTORY VIEW
+  =============================== */
+  router.get("/inventory", async (req, res) => {
+    try {
+      const result = await pool.query(`
+        SELECT 
+          q.qr_code,
+          q.status,
+          q.plan_type,
+          q.expires_at,
+          q.created_at
+        FROM qr_tags q
+        ORDER BY q.created_at DESC
+        LIMIT 500
+      `);
+
+      return res.json({ data: result.rows });
+
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Failed to fetch inventory" });
+    }
+  });
+
+  /* ===============================
+     5️⃣ ACTIVATE / EXTEND SUBSCRIPTION
+  =============================== */
   router.post("/subscription/:code", async (req, res) => {
     const code = normalize(req.params.code);
     const years = parseInt(req.body.years);
@@ -88,8 +160,8 @@ export default function adminRoutes(pool) {
       return res.status(400).json({ message: "Valid years required" });
     }
 
-    if (!price_paid || price_paid <= 0) {
-      return res.status(400).json({ message: "Valid price_paid required" });
+    if (price_paid === undefined || price_paid < 0) {
+      return res.status(400).json({ message: "Valid price required" });
     }
 
     const client = await pool.connect();
@@ -102,7 +174,6 @@ export default function adminRoutes(pool) {
         UPDATE qr_tags
         SET 
           status = 'active',
-          plan_type = 'yearly',
           subscription_started_at = COALESCE(subscription_started_at, NOW()),
           activated_at = COALESCE(activated_at, NOW()),
           price_paid = COALESCE(price_paid, 0) + $3,
@@ -113,7 +184,7 @@ export default function adminRoutes(pool) {
               ELSE expires_at + ($2 * INTERVAL '1 year')
             END
         WHERE qr_code = $1
-        RETURNING id, qr_code, status, activated_at, expires_at, price_paid
+        RETURNING *
         `,
         [code, years, price_paid]
       );
@@ -150,9 +221,9 @@ export default function adminRoutes(pool) {
     }
   });
 
-  /* =========================================
-     3️⃣ LIST QR CODES (Paginated + total)
-  ========================================= */
+  /* ===============================
+     6️⃣ LIST QR CODES (Paginated)
+  =============================== */
   router.get("/qrs", async (req, res) => {
     const page = Math.max(parseInt(req.query.page) || 1, 1);
     const limit = 50;
@@ -164,7 +235,6 @@ export default function adminRoutes(pool) {
           `
           SELECT 
             q.qr_code,
-            q.type,
             q.status,
             q.plan_type,
             q.price_paid,
@@ -196,64 +266,9 @@ export default function adminRoutes(pool) {
     }
   });
 
-  /* =========================================
-     4️⃣ EXPIRED SUBSCRIPTIONS
-  ========================================= */
-  router.get("/expired", async (req, res) => {
-    try {
-      const result = await pool.query(
-        `
-        SELECT qr_code, expires_at
-        FROM qr_tags
-        WHERE status = 'active'
-          AND expires_at IS NOT NULL
-          AND expires_at < NOW()
-        ORDER BY expires_at ASC
-        `
-      );
-
-      return res.json(result.rows);
-
-    } catch (error) {
-      console.error(error);
-      return res.status(500).json({ message: "Server error" });
-    }
-  });
-
-  /* =========================================
-     5️⃣ EMERGENCY LOGS
-  ========================================= */
-  router.get("/logs", async (req, res) => {
-    const page = Math.max(parseInt(req.query.page) || 1, 1);
-    const limit = 100;
-    const offset = (page - 1) * limit;
-
-    try {
-      const result = await pool.query(
-        `
-        SELECT *
-        FROM emergency_logs
-        ORDER BY created_at DESC
-        LIMIT $1 OFFSET $2
-        `,
-        [limit, offset]
-      );
-
-      return res.json({
-        page,
-        count: result.rows.length,
-        data: result.rows
-      });
-
-    } catch (error) {
-      console.error(error);
-      return res.status(500).json({ message: "Server error" });
-    }
-  });
-
-  /* =========================================
-     6️⃣ DASHBOARD STATS (Corrected)
-  ========================================= */
+  /* ===============================
+     7️⃣ DASHBOARD STATS
+  =============================== */
   router.get("/stats", async (req, res) => {
     try {
       const stats = await pool.query(`
