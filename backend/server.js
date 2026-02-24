@@ -15,12 +15,11 @@ import adminRoutes from "./routes/admin.routes.js";
 import profileRoutes from "./routes/profiles.routes.js";
 
 /* =========================
-   PORT (Railway strict)
+   PORT
 ========================= */
 const PORT = process.env.PORT;
-
 if (!PORT) {
-  console.error("PORT not defined by environment");
+  console.error("PORT not defined");
   process.exit(1);
 }
 
@@ -31,62 +30,89 @@ const app = express();
 app.set("trust proxy", 1);
 
 /* =========================
-   HEALTHCHECK FIRST
+   HEALTHCHECK
 ========================= */
-app.get("/health", (req, res) => {
-  return res.status(200).send("OK");
-});
-
-app.get("/", (req, res) => {
-  return res.status(200).send("OK");
-});
+app.get("/health", (_, res) => res.status(200).send("OK"));
+app.get("/", (_, res) => res.status(200).send("OK"));
 
 /* =========================
-   MIDDLEWARE
+   SECURITY
 ========================= */
 app.use(helmet());
-app.use(cors());
-app.use(express.json({ limit: "10kb" }));
 
-/* =========================
-   RATE LIMIT (API ONLY)
-========================= */
 app.use(
-  "/api",
-  rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 200
+  cors({
+    origin: process.env.FRONTEND_URL || "*",
+    credentials: true
   })
 );
 
+app.use(express.json({ limit: "10kb" }));
+
+/* =========================
+   RATE LIMITERS
+========================= */
+
+// Public API limiter
+const publicLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_, res) =>
+    res.status(429).json({ message: "Too many requests. Slow down." })
+});
+
+// Admin limiter (more relaxed for dev)
 const adminLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 30
+  max: 500,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_, res) =>
+    res.status(429).json({ message: "Admin rate limit exceeded." })
 });
 
 /* =========================
    ROUTES
 ========================= */
+
+// Apply public limiter to everything except admin
+app.use("/api", publicLimiter);
+
 app.use("/api/qr", qrRoutes(pool));
 app.use("/api/profile", profileRoutes(pool));
 app.use("/api/emergency", emergencyRoutes(pool));
 app.use("/api/otp", otpRoutes(pool));
 app.use("/api/masked", maskedRoutes(pool));
+
+// Admin gets its own limiter ONLY (no stacking)
 app.use("/api/admin", adminLimiter, adminRoutes(pool));
 
 /* =========================
    404
 ========================= */
 app.use((req, res) => {
-  res.status(404).json({ error: "Route not found" });
+  res.status(404).json({
+    success: false,
+    message: "Route not found"
+  });
 });
 
 /* =========================
    ERROR HANDLER
 ========================= */
 app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).json({ error: "Internal server error" });
+  console.error("Server error:", err);
+
+  if (err.type === "entity.parse.failed") {
+    return res.status(400).json({ message: "Invalid JSON body" });
+  }
+
+  res.status(500).json({
+    success: false,
+    message: "Internal server error"
+  });
 });
 
 /* =========================
@@ -97,7 +123,7 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 });
 
 /* =========================
-   DB CONNECT (NON BLOCKING)
+   DB CHECK
 ========================= */
 pool
   .query("SELECT 1")
