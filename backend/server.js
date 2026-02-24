@@ -44,7 +44,7 @@ const app = express();
 app.set("trust proxy", 1);
 
 /* =========================
-   HEALTHCHECK
+   HEALTHCHECK (DB AWARE)
 ========================= */
 
 app.get("/health", async (_, res) => {
@@ -56,6 +56,7 @@ app.get("/health", async (_, res) => {
     res.status(500).send("DB DOWN");
   }
 });
+
 app.get("/", (_, res) => res.status(200).send("OK"));
 
 /* =========================
@@ -67,7 +68,7 @@ app.use(helmet());
 const allowedOrigins = [
   "http://localhost:5173",
   process.env.FRONTEND_URL
-];
+].filter(Boolean);
 
 app.use(
   cors({
@@ -89,6 +90,7 @@ app.use(cookieParser());
    RATE LIMITERS
 ========================= */
 
+// General API protection
 const publicLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 300,
@@ -96,15 +98,19 @@ const publicLimiter = rateLimit({
   legacyHeaders: false
 });
 
-const adminLimiter = rateLimit({
+// STRICT login limiter only
+const adminLoginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  message: {message: "Too many login attempts"}
+  message: { message: "Too many login attempts. Try later." }
 });
 
 app.use("/api", publicLimiter);
+
+// Apply ONLY to login route
+app.use("/api/admin/login", adminLoginLimiter);
 
 /* =========================
    ROUTES
@@ -115,7 +121,9 @@ app.use("/api/profile", profileRoutes(pool));
 app.use("/api/emergency", emergencyRoutes(pool));
 app.use("/api/otp", otpRoutes(pool));
 app.use("/api/masked", maskedRoutes(pool));
-app.use("/api/admin", adminLimiter, adminRoutes(pool));
+
+// No strict limiter here
+app.use("/api/admin", adminRoutes(pool));
 
 /* =========================
    404
