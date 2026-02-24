@@ -10,43 +10,49 @@ export default function ActivatePage() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (!code) {
+      setError("Invalid QR code");
+      setLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+
     async function checkQR() {
       try {
-        const res = await fetch(`${API_BASE_URL}/qr/${code}`);
+        const res = await fetch(
+          `${API_BASE_URL}/api/qr/${code}`,
+          { signal: controller.signal }
+        );
 
-        let data;
-        try {
-          data = await res.json();
-        } catch {
-          throw new Error("Invalid server response");
-        }
+        const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
-          if (data?.message === "QR not activated") {
-            setLoading(false);
-            return;
-          }
-
           if (data?.message === "QR expired") {
             navigate(`/expired/${code}`);
             return;
           }
 
-          setError(data?.message || "Unknown error");
-          setLoading(false);
-          return;
+          if (data?.message === "QR not activated") {
+            setLoading(false);
+            return;
+          }
+
+          throw new Error(data?.message || "Failed to validate QR");
         }
 
-        // If active → redirect to emergency
         navigate(`/emergency/${code}`);
-
       } catch (err) {
-        setError(err.message || "Server not reachable");
-        setLoading(false);
+        if (err.name !== "AbortError") {
+          setError(err.message || "Server unreachable");
+          setLoading(false);
+        }
       }
     }
 
     checkQR();
+
+    return () => controller.abort();
   }, [code, navigate]);
 
   if (loading) return <h2>Checking QR status...</h2>;
@@ -56,7 +62,7 @@ export default function ActivatePage() {
     <div>
       <h1>Activate QR</h1>
       <p>QR Code: {code}</p>
-      <p>Please complete activation process.</p>
+      <p>Please complete activation.</p>
     </div>
   );
 }

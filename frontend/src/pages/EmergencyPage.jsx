@@ -1,8 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-
-const API_BASE =
-  "https://privacy-protected-emergency-production-581f.up.railway.app";
+import { API_BASE_URL } from "../config";
 
 export default function EmergencyPage() {
   const { code } = useParams();
@@ -19,60 +17,60 @@ export default function EmergencyPage() {
       return;
     }
 
+    const controller = new AbortController();
+
     async function fetchQR() {
       try {
-        const response = await fetch(`${API_BASE}/api/qr/${code}`);
+        const res = await fetch(
+          `${API_BASE_URL}/api/qr/${code}`,
+          { signal: controller.signal }
+        );
 
-        const text = await response.text();
-        let result;
+        const result = await res.json().catch(() => ({}));
 
-        try {
-          result = JSON.parse(text);
-        } catch {
-          throw new Error("Invalid server response");
-        }
-
-        if (!response.ok) {
+        if (!res.ok) {
           throw new Error(result?.message || "Failed to fetch QR data");
         }
 
         setData(result);
       } catch (err) {
-        setError(err.message || "Something went wrong");
+        if (err.name !== "AbortError") {
+          setError(err.message || "Server error");
+        }
       } finally {
         setLoading(false);
       }
     }
 
     fetchQR();
+    return () => controller.abort();
   }, [code]);
 
   async function handleCallOwner() {
+    if (!data?.owner_mobile) {
+      alert("Owner mobile not available");
+      return;
+    }
+
     try {
       setCalling(true);
 
       const res = await fetch(
-        `${API_BASE}/api/qr/${code}/contact`,
+        `${API_BASE_URL}/api/qr/${code}/contact`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action_type: "call"
-          })
+          body: JSON.stringify({ action_type: "call" })
         }
       );
 
-      const result = await res.json();
+      const result = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        throw new Error(result?.message || "Call failed");
+        throw new Error(result?.message || "Contact failed");
       }
 
-      if (!data?.owner_mobile)
-        throw new Error("Owner mobile not available");
-
       window.location.href = `tel:${data.owner_mobile}`;
-
     } catch (err) {
       alert(err.message);
     } finally {
@@ -80,47 +78,38 @@ export default function EmergencyPage() {
     }
   }
 
-  if (loading)
-    return <h2 style={{ padding: "40px" }}>Loading...</h2>;
-
+  if (loading) return <h2 style={{ padding: 40 }}>Loading...</h2>;
   if (error)
     return (
-      <div style={{ padding: "40px", color: "red" }}>
+      <div style={{ padding: 40, color: "red" }}>
         <h2>{error}</h2>
       </div>
     );
 
   return (
-    <div style={{ padding: "40px" }}>
+    <div style={{ padding: 40 }}>
       <h1>Emergency Mode</h1>
 
       <p><strong>QR Code:</strong> {data?.qr_code}</p>
+      <p><strong>Vehicle:</strong> {data?.vehicle_number || "-"}</p>
+      <p><strong>Model:</strong> {data?.model || "-"}</p>
+      <p><strong>Blood Group:</strong> {data?.blood_group || "-"}</p>
 
-      {data?.vehicle_number ? (
-        <>
-          <p><strong>Vehicle Number:</strong> {data.vehicle_number}</p>
-          <p><strong>Model:</strong> {data.model || "N/A"}</p>
-          <p><strong>Blood Group:</strong> {data.blood_group || "N/A"}</p>
-
-          <button
-            onClick={handleCallOwner}
-            disabled={calling}
-            style={{
-              marginTop: "20px",
-              padding: "12px 24px",
-              cursor: "pointer",
-              backgroundColor: "red",
-              color: "white",
-              border: "none",
-              borderRadius: "6px"
-            }}
-          >
-            {calling ? "Connecting..." : "Call Owner"}
-          </button>
-        </>
-      ) : (
-        <p>No vehicle data linked to this QR.</p>
-      )}
+      <button
+        onClick={handleCallOwner}
+        disabled={calling}
+        style={{
+          marginTop: 20,
+          padding: "12px 24px",
+          backgroundColor: "red",
+          color: "white",
+          border: "none",
+          borderRadius: 6,
+          cursor: "pointer"
+        }}
+      >
+        {calling ? "Connecting..." : "Call Owner"}
+      </button>
     </div>
   );
 }

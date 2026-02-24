@@ -1,14 +1,52 @@
 import express from "express";
 import { v4 as uuidv4 } from "uuid";
+import jwt from "jsonwebtoken";
 import adminAuth from "../middleware/adminAuth.js";
 
 export default function adminRoutes(pool) {
   const router = express.Router();
 
+  /* ===============================
+     LOGIN (PUBLIC)
+  =============================== */
+  router.post("/login", (req, res) => {
+    const { email, password } = req.body;
+
+    if (
+      email !== process.env.ADMIN_EMAIL ||
+      password !== process.env.ADMIN_PASSWORD
+    ) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    const token = jwt.sign(
+      { role: "admin" },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    res.cookie("admin_token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict"
+    });
+
+    return res.json({ message: "Login successful" });
+  });
+
+  /* Protect everything below */
   router.use(adminAuth);
 
   /* ===============================
-     1️⃣ GENERATE QR BATCH
+     LOGOUT
+  =============================== */
+  router.post("/logout", (req, res) => {
+    res.clearCookie("admin_token");
+    res.json({ message: "Logged out" });
+  });
+
+  /* ===============================
+     GENERATE BATCH
   =============================== */
   router.post("/generate-batch", async (req, res) => {
     const quantity = parseInt(req.body.quantity);
@@ -26,7 +64,6 @@ export default function adminRoutes(pool) {
     try {
       await client.query("BEGIN");
 
-      // 1. Create batch record
       const batchResult = await client.query(
         `
         INSERT INTO qr_batches (batch_name, agent_name, quantity)
@@ -38,7 +75,6 @@ export default function adminRoutes(pool) {
 
       const batch = batchResult.rows[0];
 
-      // 2. Insert QR codes
       for (let i = 0; i < quantity; i++) {
         const qr_code = uuidv4().toUpperCase();
 
@@ -54,60 +90,49 @@ export default function adminRoutes(pool) {
 
       await client.query("COMMIT");
 
-      return res.json({
-        message: "Batch generated",
-        data: batch
-      });
+      res.json({ message: "Batch generated", data: batch });
 
     } catch (err) {
       await client.query("ROLLBACK");
       console.error(err);
-      return res.status(500).json({ message: "Batch generation failed" });
+      res.status(500).json({ message: "Batch generation failed" });
     } finally {
       client.release();
     }
   });
 
   /* ===============================
-     2️⃣ LIST BATCHES  (FIXED)
+     LIST BATCHES
   =============================== */
   router.get("/batches", async (req, res) => {
     try {
-      const result = await pool.query(`
-        SELECT *
-        FROM qr_batches
-        ORDER BY created_at DESC
-      `);
-
-      return res.json({
-        data: result.rows
-      });
-
+      const result = await pool.query(
+        `SELECT * FROM qr_batches ORDER BY created_at DESC`
+      );
+      res.json({ data: result.rows });
     } catch (err) {
       console.error(err);
-      return res.status(500).json({ message: "Failed to fetch batches" });
+      res.status(500).json({ message: "Failed to fetch batches" });
     }
   });
 
   /* ===============================
-     3️⃣ LIST ORDERS
+     LIST ORDERS
   =============================== */
   router.get("/orders", async (req, res) => {
     try {
       const result = await pool.query(
         `SELECT * FROM tag_orders ORDER BY created_at DESC`
       );
-
-      return res.json({ data: result.rows });
-
+      res.json({ data: result.rows });
     } catch (err) {
       console.error(err);
-      return res.status(500).json({ message: "Failed to fetch orders" });
+      res.status(500).json({ message: "Failed to fetch orders" });
     }
   });
 
   /* ===============================
-     4️⃣ INVENTORY VIEW
+     INVENTORY
   =============================== */
   router.get("/inventory", async (req, res) => {
     try {
@@ -124,11 +149,10 @@ export default function adminRoutes(pool) {
         LIMIT 500
       `);
 
-      return res.json({ data: result.rows });
-
+      res.json({ data: result.rows });
     } catch (err) {
       console.error(err);
-      return res.status(500).json({ message: "Failed to fetch inventory" });
+      res.status(500).json({ message: "Failed to fetch inventory" });
     }
   });
 

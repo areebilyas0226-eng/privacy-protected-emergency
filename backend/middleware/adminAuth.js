@@ -1,30 +1,30 @@
+import jwt from "jsonwebtoken";
+
 export default function adminAuth(req, res, next) {
   try {
-    const headerKey = req.headers["x-admin-key"];
-    const envKey = process.env.ADMIN_KEY;
+    const token = req.cookies?.admin_token;
 
-    // Ensure server is properly configured
-    if (!envKey || typeof envKey !== "string") {
-      console.error("ADMIN_KEY missing in environment");
-      return res.status(500).json({ message: "Server configuration error" });
+    // No token present
+    if (!token) {
+      return res.status(401).json({ message: "Unauthorized" });
     }
 
-    // Ensure header exists
-    if (!headerKey || typeof headerKey !== "string") {
-      return res.status(401).json({ message: "Admin key required" });
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Validate role
+    if (!decoded || decoded.role !== "admin") {
+      return res.status(403).json({ message: "Forbidden" });
     }
 
-    // Normalize values (remove hidden whitespace)
-    const normalizedHeader = headerKey.trim();
-    const normalizedEnv = envKey.trim();
-
-    if (normalizedHeader !== normalizedEnv) {
-      return res.status(403).json({ message: "Invalid admin key" });
-    }
+    // Attach admin info to request (optional)
+    req.admin = decoded;
 
     return next();
+
   } catch (err) {
-    console.error("Admin auth error:", err);
-    return res.status(500).json({ message: "Authentication error" });
+    return res.status(401).json({
+      message: "Invalid or expired token"
+    });
   }
 }

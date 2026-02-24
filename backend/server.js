@@ -5,6 +5,7 @@ import express from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
+import cookieParser from "cookie-parser";
 
 import pool from "./db.js";
 import qrRoutes from "./routes/qr.routes.js";
@@ -42,61 +43,54 @@ app.use(helmet());
 
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "*",
+    origin: process.env.FRONTEND_URL,
     credentials: true
   })
 );
 
 app.use(express.json({ limit: "10kb" }));
+app.use(cookieParser());
 
 /* =========================
    RATE LIMITERS
 ========================= */
 
-// Public API limiter
 const publicLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 300,
   standardHeaders: true,
   legacyHeaders: false,
   handler: (_, res) =>
-    res.status(429).json({ message: "Too many requests. Slow down." })
+    res.status(429).json({ message: "Too many requests" })
 });
 
-// Admin limiter (more relaxed for dev)
 const adminLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 500,
+  max: 200,
   standardHeaders: true,
   legacyHeaders: false,
   handler: (_, res) =>
-    res.status(429).json({ message: "Admin rate limit exceeded." })
+    res.status(429).json({ message: "Admin rate limit exceeded" })
 });
+
+app.use("/api", publicLimiter);
 
 /* =========================
    ROUTES
 ========================= */
-
-// Apply public limiter to everything except admin
-app.use("/api", publicLimiter);
-
 app.use("/api/qr", qrRoutes(pool));
 app.use("/api/profile", profileRoutes(pool));
 app.use("/api/emergency", emergencyRoutes(pool));
 app.use("/api/otp", otpRoutes(pool));
 app.use("/api/masked", maskedRoutes(pool));
 
-// Admin gets its own limiter ONLY (no stacking)
 app.use("/api/admin", adminLimiter, adminRoutes(pool));
 
 /* =========================
    404
 ========================= */
 app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: "Route not found"
-  });
+  res.status(404).json({ message: "Route not found" });
 });
 
 /* =========================
@@ -109,10 +103,7 @@ app.use((err, req, res, next) => {
     return res.status(400).json({ message: "Invalid JSON body" });
   }
 
-  res.status(500).json({
-    success: false,
-    message: "Internal server error"
-  });
+  res.status(500).json({ message: "Internal server error" });
 });
 
 /* =========================
