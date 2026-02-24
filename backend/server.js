@@ -26,48 +26,33 @@ const app = express();
 app.set("trust proxy", 1);
 
 /* =========================
+   HEALTHCHECK MUST BE FIRST
+========================= */
+app.get("/health", (req, res) => {
+  return res.status(200).send("OK");
+});
+
+/* =========================
+   ROOT
+========================= */
+app.get("/", (req, res) => {
+  return res.status(200).send("OK");
+});
+
+/* =========================
    SECURITY
 ========================= */
 app.use(helmet());
 
 /* =========================
-   CORS (Fail-safe)
+   SIMPLE CORS (NO BLOCKING)
 ========================= */
-const allowedOrigins = [
-  "http://localhost:5173",
-  "http://localhost:4173",
-  process.env.FRONTEND_URL
-].filter(Boolean);
-
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true); // allow healthchecks
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-      return callback(null, false);
-    },
-    credentials: true
-  })
-);
+app.use(cors());
 
 /* =========================
    BODY PARSER
 ========================= */
 app.use(express.json({ limit: "10kb" }));
-
-/* =========================
-   ROOT (Must respond instantly)
-========================= */
-app.get("/", (req, res) => {
-  res.status(200).send("OK");
-});
-
-/* =========================
-   HEALTH CHECK
-========================= */
-app.get("/health", (req, res) => {
-  res.status(200).json({ status: "ok" });
-});
 
 /* =========================
    RATE LIMIT (API ONLY)
@@ -106,7 +91,7 @@ app.use((req, res) => {
    ERROR HANDLER
 ========================= */
 app.use((err, req, res, next) => {
-  console.error("Unhandled Error:", err);
+  console.error(err);
   res.status(500).json({ error: "Internal server error" });
 });
 
@@ -118,23 +103,12 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 });
 
 /* =========================
-   CONNECT DB (Non-blocking)
+   CONNECT DB (NON-BLOCKING)
 ========================= */
 pool
   .query("SELECT 1")
   .then(() => console.log("Database connected"))
   .catch((err) => console.error("Database connection failed:", err));
-
-/* =========================
-   GLOBAL CRASH GUARDS
-========================= */
-process.on("unhandledRejection", (err) => {
-  console.error("Unhandled Rejection:", err);
-});
-
-process.on("uncaughtException", (err) => {
-  console.error("Uncaught Exception:", err);
-});
 
 /* =========================
    GRACEFUL SHUTDOWN
