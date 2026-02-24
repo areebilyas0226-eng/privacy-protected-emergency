@@ -47,7 +47,15 @@ app.set("trust proxy", 1);
    HEALTHCHECK
 ========================= */
 
-app.get("/health", (_, res) => res.status(200).send("OK"));
+app.get("/health", async (_, res) => {
+  try {
+    await pool.query("SELECT 1");
+    res.status(200).send("OK");
+  } catch (err) {
+    console.error("Health check DB error:", err);
+    res.status(500).send("DB DOWN");
+  }
+});
 app.get("/", (_, res) => res.status(200).send("OK"));
 
 /* =========================
