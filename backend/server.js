@@ -16,38 +16,64 @@ import adminRoutes from "./routes/admin.routes.js";
 import profileRoutes from "./routes/profiles.routes.js";
 
 /* =========================
-   PORT
+   ENV VALIDATION
 ========================= */
+
+const requiredEnv = [
+  "PORT",
+  "DATABASE_URL",
+  "ADMIN_EMAIL",
+  "ADMIN_PASSWORD_HASH",
+  "JWT_SECRET"
+];
+
+requiredEnv.forEach((key) => {
+  if (!process.env[key]) {
+    console.error(`${key} not defined`);
+    process.exit(1);
+  }
+});
+
 const PORT = process.env.PORT;
-if (!PORT) {
-  console.error("PORT not defined");
-  process.exit(1);
-}
 
 /* =========================
    APP INIT
 ========================= */
+
 const app = express();
 app.set("trust proxy", 1);
 
 /* =========================
    HEALTHCHECK
 ========================= */
+
 app.get("/health", (_, res) => res.status(200).send("OK"));
 app.get("/", (_, res) => res.status(200).send("OK"));
 
 /* =========================
    SECURITY
 ========================= */
+
+app.use(helmet());
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  process.env.FRONTEND_URL
+];
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "https://your-frontend-domain.com"
-    ],
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true
   })
 );
+
 app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
 
@@ -59,18 +85,14 @@ const publicLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 300,
   standardHeaders: true,
-  legacyHeaders: false,
-  handler: (_, res) =>
-    res.status(429).json({ message: "Too many requests" })
+  legacyHeaders: false
 });
 
 const adminLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: 20,
   standardHeaders: true,
-  legacyHeaders: false,
-  handler: (_, res) =>
-    res.status(429).json({ message: "Admin rate limit exceeded" })
+  legacyHeaders: false
 });
 
 app.use("/api", publicLimiter);
@@ -78,17 +100,18 @@ app.use("/api", publicLimiter);
 /* =========================
    ROUTES
 ========================= */
+
 app.use("/api/qr", qrRoutes(pool));
 app.use("/api/profile", profileRoutes(pool));
 app.use("/api/emergency", emergencyRoutes(pool));
 app.use("/api/otp", otpRoutes(pool));
 app.use("/api/masked", maskedRoutes(pool));
-
 app.use("/api/admin", adminLimiter, adminRoutes(pool));
 
 /* =========================
    404
 ========================= */
+
 app.use((req, res) => {
   res.status(404).json({ message: "Route not found" });
 });
@@ -96,6 +119,7 @@ app.use((req, res) => {
 /* =========================
    ERROR HANDLER
 ========================= */
+
 app.use((err, req, res, next) => {
   console.error("Server error:", err);
 
@@ -109,6 +133,7 @@ app.use((err, req, res, next) => {
 /* =========================
    START SERVER
 ========================= */
+
 const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });
@@ -116,6 +141,7 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 /* =========================
    DB CHECK
 ========================= */
+
 pool
   .query("SELECT 1")
   .then(() => console.log("Database connected"))
@@ -124,6 +150,7 @@ pool
 /* =========================
    GRACEFUL SHUTDOWN
 ========================= */
+
 const shutdown = async () => {
   console.log("Shutdown signal received");
 

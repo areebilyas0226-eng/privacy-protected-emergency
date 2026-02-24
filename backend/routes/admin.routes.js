@@ -1,6 +1,7 @@
 import express from "express";
 import { v4 as uuidv4 } from "uuid";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 import adminAuth from "../middleware/adminAuth.js";
 
 export default function adminRoutes(pool) {
@@ -9,29 +10,55 @@ export default function adminRoutes(pool) {
   /* ===============================
      LOGIN (PUBLIC)
   =============================== */
-  router.post("/login", (req, res) => {
-    const { email, password } = req.body;
+  router.post("/login", async (req, res) => {
+    try {
+      const { email, password } = req.body;
 
-    if (
-      email !== process.env.ADMIN_EMAIL ||
-      password !== process.env.ADMIN_PASSWORD
-    ) {
-      return res.status(401).json({ message: "Invalid credentials" });
+      if (!email || !password) {
+        return res
+          .status(400)
+          .json({ message: "Email and password required" });
+      }
+
+      // Case-insensitive email check
+      if (
+        email.toLowerCase() !==
+        process.env.ADMIN_EMAIL.toLowerCase()
+      ) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      // Compare bcrypt hash
+      const isMatch = await bcrypt.compare(
+        password,
+        process.env.ADMIN_PASSWORD_HASH
+      );
+
+      if (!isMatch) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      const token = jwt.sign(
+        { role: "admin" },
+        process.env.JWT_SECRET,
+        { expiresIn: "1h" }
+      );
+
+      res.cookie("admin_token", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite:
+          process.env.NODE_ENV === "production"
+            ? "none"
+            : "lax"
+      });
+
+      return res.json({ message: "Login successful" });
+
+    } catch (err) {
+      console.error("Login error:", err);
+      return res.status(500).json({ message: "Login failed" });
     }
-
-    const token = jwt.sign(
-      { role: "admin" },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
-    );
-
-    res.cookie("admin_token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict"
-    });
-
-    return res.json({ message: "Login successful" });
   });
 
   /* Protect everything below */
@@ -41,7 +68,15 @@ export default function adminRoutes(pool) {
      LOGOUT
   =============================== */
   router.post("/logout", (req, res) => {
-    res.clearCookie("admin_token");
+    res.clearCookie("admin_token", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite:
+        process.env.NODE_ENV === "production"
+          ? "none"
+          : "lax"
+    });
+
     res.json({ message: "Logged out" });
   });
 
@@ -50,7 +85,8 @@ export default function adminRoutes(pool) {
   =============================== */
   router.post("/generate-batch", async (req, res) => {
     const quantity = parseInt(req.body.quantity);
-    const batch_name = req.body.batch_name || `Batch-${Date.now()}`;
+    const batch_name =
+      req.body.batch_name || `Batch-${Date.now()}`;
     const agent_name = req.body.agent_name || null;
 
     if (!quantity || quantity < 1 || quantity > 5000) {
