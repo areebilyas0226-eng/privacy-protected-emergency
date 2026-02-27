@@ -49,28 +49,36 @@ app.set("trust proxy", 1);
 
 app.use(helmet());
 
+/* =========================
+   CORS FIX (PRODUCTION SAFE)
+========================= */
+
 const allowedOrigins = [
   "http://localhost:5173",
-  process.env.FRONTEND_URL
+  "http://localhost:5174",
+  process.env.FRONTEND_URL, // must match Vercel domain exactly
 ].filter(Boolean);
 
-const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // Allow server-to-server & curl
+      if (!origin) return callback(null, true);
 
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
 
-    return callback(new Error("Not allowed by CORS"));
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  optionsSuccessStatus: 204
-};
+      return callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
-app.use(cors(corsOptions)); // ✅ This already handles preflight
+// Explicit preflight support
+app.options("*", cors());
 
 app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
@@ -137,7 +145,7 @@ app.use((req, res) => {
 ========================= */
 
 app.use((err, req, res, next) => {
-  console.error("Server error:", err);
+  console.error("Server error:", err.message);
 
   if (err.message === "Not allowed by CORS") {
     return res.status(403).json({ message: "CORS blocked request" });
