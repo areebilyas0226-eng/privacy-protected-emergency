@@ -9,8 +9,8 @@ export default function AdminDashboard() {
   const [batches, setBatches] = useState([]);
   const [inventory, setInventory] = useState([]);
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const [orderForm, setOrderForm] = useState({
     customer_name: "",
@@ -25,13 +25,15 @@ export default function AdminDashboard() {
   });
 
   /* =========================
-     SAFE API WRAPPER (JWT COOKIE)
+     SAFE API WRAPPER
   ========================= */
   async function apiFetch(path, options = {}) {
-    if (!API_BASE) throw new Error("VITE_API_BASE missing");
+    if (!API_BASE) {
+      throw new Error("VITE_API_BASE not defined");
+    }
 
     const res = await fetch(`${API_BASE}/api${path}`, {
-      credentials: "include", // 🔥 required for JWT cookie
+      credentials: "include",
       cache: "no-store",
       ...options,
       headers: {
@@ -40,6 +42,15 @@ export default function AdminDashboard() {
       }
     });
 
+    if (res.status === 401) {
+      window.location.href = "/admin-login";
+      throw new Error("Unauthorized");
+    }
+
+    if (res.status === 404) {
+      throw new Error(`Route not found: ${path}`);
+    }
+
     const text = await res.text();
     let data = {};
 
@@ -47,11 +58,6 @@ export default function AdminDashboard() {
       data = text ? JSON.parse(text) : {};
     } catch {
       data = {};
-    }
-
-    if (res.status === 401) {
-      window.location.href = "/admin-login";
-      return;
     }
 
     if (!res.ok) {
@@ -67,17 +73,17 @@ export default function AdminDashboard() {
   async function loadData() {
     try {
       setLoading(true);
-      setError(null);
+      setError("");
 
       const [ordersRes, batchesRes, inventoryRes] = await Promise.all([
-        apiFetch("/admin/orders"),
-        apiFetch("/admin/batches"),
-        apiFetch("/admin/inventory")
+        apiFetch("/admin/orders").catch(() => ({ data: [] })),
+        apiFetch("/admin/batches").catch(() => ({ data: [] })),
+        apiFetch("/admin/inventory").catch(() => ({ data: [] }))
       ]);
 
-      setOrders(ordersRes?.data || []);
-      setBatches(batchesRes?.data || []);
-      setInventory(inventoryRes?.data || []);
+      setOrders(Array.isArray(ordersRes.data) ? ordersRes.data : []);
+      setBatches(Array.isArray(batchesRes.data) ? batchesRes.data : []);
+      setInventory(Array.isArray(inventoryRes.data) ? inventoryRes.data : []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -93,13 +99,14 @@ export default function AdminDashboard() {
      CREATE ORDER
   ========================= */
   async function handleCreateOrder() {
+    const { customer_name, mobile, quantity } = orderForm;
+
+    if (!customer_name || !mobile || !quantity) {
+      alert("All fields required");
+      return;
+    }
+
     try {
-      const { customer_name, mobile, quantity } = orderForm;
-
-      if (!customer_name || !mobile || !quantity) {
-        return alert("All fields required");
-      }
-
       await apiFetch("/admin/orders", {
         method: "POST",
         body: JSON.stringify({
@@ -110,7 +117,17 @@ export default function AdminDashboard() {
       });
 
       setOrderForm({ customer_name: "", mobile: "", quantity: "" });
-      loadData();
+
+      setOrders((prev) => [
+        ...prev,
+        {
+          customer_name,
+          mobile,
+          quantity_ordered: Number(quantity),
+          quantity_fulfilled: 0,
+          status: "pending"
+        }
+      ]);
     } catch (err) {
       alert(err.message);
     }
@@ -120,13 +137,14 @@ export default function AdminDashboard() {
      GENERATE BATCH
   ========================= */
   async function handleGenerateBatch() {
+    const { batch_name, agent_name, quantity } = batchForm;
+
+    if (!batch_name || !quantity) {
+      alert("Batch name and quantity required");
+      return;
+    }
+
     try {
-      const { batch_name, agent_name, quantity } = batchForm;
-
-      if (!batch_name || !quantity) {
-        return alert("Batch name and quantity required");
-      }
-
       await apiFetch("/admin/generate-batch", {
         method: "POST",
         body: JSON.stringify({
@@ -137,7 +155,8 @@ export default function AdminDashboard() {
       });
 
       setBatchForm({ batch_name: "", agent_name: "", quantity: "" });
-      loadData();
+
+      loadData(); // inventory changes, so reload
     } catch (err) {
       alert(err.message);
     }
@@ -150,14 +169,12 @@ export default function AdminDashboard() {
     <div style={{ padding: 40 }}>
       <h1>Admin Panel</h1>
 
-      {/* Tabs */}
       <div style={{ marginBottom: 30 }}>
         <button onClick={() => setActiveTab("orders")}>Tag Orders</button>
         <button onClick={() => setActiveTab("batch")}>Generate QR Batch</button>
         <button onClick={() => setActiveTab("inventory")}>QR Inventory</button>
       </div>
 
-      {/* ================= ORDERS ================= */}
       {activeTab === "orders" && (
         <div>
           <h2>Create Order</h2>
@@ -202,21 +219,26 @@ export default function AdminDashboard() {
               </tr>
             </thead>
             <tbody>
-              {orders.map((o) => (
-                <tr key={o.id}>
-                  <td>{o.customer_name}</td>
-                  <td>{o.mobile}</td>
-                  <td>{o.quantity_ordered}</td>
-                  <td>{o.quantity_fulfilled}</td>
-                  <td>{o.status}</td>
+              {orders.length === 0 ? (
+                <tr>
+                  <td colSpan="5">No orders found</td>
                 </tr>
-              ))}
+              ) : (
+                orders.map((o, idx) => (
+                  <tr key={o.id || idx}>
+                    <td>{o.customer_name}</td>
+                    <td>{o.mobile}</td>
+                    <td>{o.quantity_ordered}</td>
+                    <td>{o.quantity_fulfilled}</td>
+                    <td>{o.status}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       )}
 
-      {/* ================= BATCH ================= */}
       {activeTab === "batch" && (
         <div>
           <h2>Generate QR Batch</h2>
@@ -259,19 +281,24 @@ export default function AdminDashboard() {
               </tr>
             </thead>
             <tbody>
-              {batches.map((b) => (
-                <tr key={b.id}>
-                  <td>{b.batch_name}</td>
-                  <td>{b.agent_name || "-"}</td>
-                  <td>{b.quantity}</td>
+              {batches.length === 0 ? (
+                <tr>
+                  <td colSpan="3">No batches found</td>
                 </tr>
-              ))}
+              ) : (
+                batches.map((b, idx) => (
+                  <tr key={b.id || idx}>
+                    <td>{b.batch_name}</td>
+                    <td>{b.agent_name || "-"}</td>
+                    <td>{b.quantity}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       )}
 
-      {/* ================= INVENTORY ================= */}
       {activeTab === "inventory" && (
         <div>
           <h2>QR Inventory</h2>
@@ -286,22 +313,28 @@ export default function AdminDashboard() {
               </tr>
             </thead>
             <tbody>
-              {inventory.map((i) => (
-                <tr key={i.qr_code}>
-                  <td>{i.qr_code}</td>
-                  <td>{i.batch_name || "-"}</td>
-                  <td>{i.status}</td>
-                  <td>
-                    <a
-                      href={`/activate/${i.qr_code}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      View
-                    </a>
-                  </td>
+              {inventory.length === 0 ? (
+                <tr>
+                  <td colSpan="4">No inventory found</td>
                 </tr>
-              ))}
+              ) : (
+                inventory.map((i, idx) => (
+                  <tr key={i.qr_code || idx}>
+                    <td>{i.qr_code}</td>
+                    <td>{i.batch_name || "-"}</td>
+                    <td>{i.status}</td>
+                    <td>
+                      <a
+                        href={`/activate/${i.qr_code}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        View
+                      </a>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
