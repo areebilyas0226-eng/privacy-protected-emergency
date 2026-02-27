@@ -6,9 +6,7 @@ if (!API_BASE) {
   throw new Error("VITE_API_BASE is not defined");
 }
 
-function buildUrl(path) {
-  return `${API_BASE}/api${path}`;
-}
+const buildUrl = (path) => `${API_BASE}/api${path}`;
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("orders");
@@ -47,7 +45,7 @@ export default function AdminDashboard() {
 
     if (res.status === 401) {
       window.location.replace("/admin-login");
-      throw new Error("Unauthorized");
+      return;
     }
 
     const data = await res.json().catch(() => ({}));
@@ -153,10 +151,6 @@ export default function AdminDashboard() {
     }
   }
 
-  /* =========================
-     RENDER
-  ========================= */
-
   if (loading) return <h2 style={{ padding: 40 }}>Loading...</h2>;
   if (error) return <h2 style={{ padding: 40, color: "red" }}>{error}</h2>;
 
@@ -181,7 +175,6 @@ export default function AdminDashboard() {
               setOrderForm({ ...orderForm, customer_name: e.target.value })
             }
           />
-
           <input
             placeholder="Mobile"
             value={orderForm.mobile}
@@ -189,7 +182,6 @@ export default function AdminDashboard() {
               setOrderForm({ ...orderForm, mobile: e.target.value })
             }
           />
-
           <input
             type="number"
             placeholder="Quantity"
@@ -215,12 +207,10 @@ export default function AdminDashboard() {
             </thead>
             <tbody>
               {orders.length === 0 ? (
-                <tr>
-                  <td colSpan="5">No orders found</td>
-                </tr>
+                <tr><td colSpan="5">No orders found</td></tr>
               ) : (
-                orders.map((o) => (
-                  <tr key={o.id}>
+                orders.map((o, idx) => (
+                  <tr key={o.id ?? idx}>
                     <td>{o.customer_name}</td>
                     <td>{o.mobile}</td>
                     <td>{o.quantity_ordered}</td>
@@ -245,7 +235,6 @@ export default function AdminDashboard() {
               setBatchForm({ ...batchForm, batch_name: e.target.value })
             }
           />
-
           <input
             placeholder="Agent Name"
             value={batchForm.agent_name}
@@ -253,7 +242,6 @@ export default function AdminDashboard() {
               setBatchForm({ ...batchForm, agent_name: e.target.value })
             }
           />
-
           <input
             type="number"
             placeholder="Quantity"
@@ -265,9 +253,7 @@ export default function AdminDashboard() {
 
           <button onClick={handleGenerateBatch}>Generate</button>
 
-          <h3 style={{ marginTop: 40 }}>Generated Batches</h3>
-
-          <table border="1" cellPadding="8">
+          <table border="1" cellPadding="8" style={{ marginTop: 40 }}>
             <thead>
               <tr>
                 <th>Batch</th>
@@ -277,12 +263,10 @@ export default function AdminDashboard() {
             </thead>
             <tbody>
               {batches.length === 0 ? (
-                <tr>
-                  <td colSpan="3">No batches found</td>
-                </tr>
+                <tr><td colSpan="3">No batches found</td></tr>
               ) : (
-                batches.map((b) => (
-                  <tr key={b.id}>
+                batches.map((b, idx) => (
+                  <tr key={b.id ?? idx}>
                     <td>{b.batch_name}</td>
                     <td>{b.agent_name || "-"}</td>
                     <td>{b.quantity}</td>
@@ -309,12 +293,10 @@ export default function AdminDashboard() {
             </thead>
             <tbody>
               {inventory.length === 0 ? (
-                <tr>
-                  <td colSpan="4">No inventory found</td>
-                </tr>
+                <tr><td colSpan="4">No inventory found</td></tr>
               ) : (
-                inventory.map((i) => (
-                  <tr key={i.qr_code}>
+                inventory.map((i, idx) => (
+                  <tr key={i.qr_code ?? idx}>
                     <td>{i.qr_code}</td>
                     <td>{i.batch_name || "-"}</td>
                     <td>{i.status}</td>
