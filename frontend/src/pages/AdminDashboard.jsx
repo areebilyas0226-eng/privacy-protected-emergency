@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 const API_BASE = import.meta.env.VITE_API_URL;
 
 if (!API_BASE) {
-  throw new Error("VITE_API_BASE is not defined");
+  throw new Error("VITE_API_URL is not defined");
 }
 
 const buildUrl = (path) => `${API_BASE}/api${path}`;
