@@ -19,8 +19,8 @@ import profileRoutes from "./routes/profiles.routes.js";
    ENV VALIDATION
 ========================= */
 
+// ❌ DO NOT require PORT (Railway provides it)
 const requiredEnv = [
-  "PORT",
   "DATABASE_URL",
   "ADMIN_EMAIL",
   "ADMIN_PASSWORD_HASH",
@@ -34,7 +34,8 @@ requiredEnv.forEach((key) => {
   }
 });
 
-const PORT = process.env.PORT;
+// ✅ Railway-safe PORT handling
+const PORT = process.env.PORT || 8080;
 
 /* =========================
    APP INIT
@@ -50,20 +51,19 @@ app.set("trust proxy", 1);
 app.use(helmet());
 
 /* =========================
-   CORS FIX (PRODUCTION SAFE)
+   CORS (Railway + Vercel Safe)
 ========================= */
 
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
-  process.env.FRONTEND_URL, // must match Vercel domain exactly
+  process.env.FRONTEND_URL
 ].filter(Boolean);
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // Allow server-to-server & curl
-      if (!origin) return callback(null, true);
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true); // allow curl/server calls
 
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
@@ -73,19 +73,24 @@ app.use(
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization"]
   })
 );
 
-// Explicit preflight support
+// Explicit preflight
 app.options("*", cors());
 
 app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
 
 /* =========================
-   HEALTHCHECK
+   HEALTHCHECK (CRITICAL)
 ========================= */
+
+// Railway checks "/"
+app.get("/", (_, res) => {
+  res.status(200).send("OK");
+});
 
 app.get("/health", async (_, res) => {
   try {
@@ -96,8 +101,6 @@ app.get("/health", async (_, res) => {
     res.status(500).send("DB DOWN");
   }
 });
-
-app.get("/", (_, res) => res.status(200).send("OK"));
 
 /* =========================
    RATE LIMITERS
