@@ -1,68 +1,63 @@
-import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { API_BASE_URL } from "../config";
+import { useState } from "react";
+
+const API_BASE = import.meta.env.VITE_API_URL;
+
+if (!API_BASE) {
+  throw new Error("VITE_API_URL is not defined");
+}
 
 export default function ActivatePage() {
   const { code } = useParams();
   const navigate = useNavigate();
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (!code) {
-      setError("Invalid QR code");
-      setLoading(false);
-      return;
-    }
+  async function handleActivate() {
+    if (!code) return;
 
-    const controller = new AbortController();
+    try {
+      setLoading(true);
+      setError("");
 
-    async function checkQR() {
-      try {
-        const res = await fetch(
-          `${API_BASE_URL}/api/qr/${code}`,
-          { signal: controller.signal }
-        );
-
-        const data = await res.json().catch(() => ({}));
-
-        if (!res.ok) {
-          if (data?.message === "QR expired") {
-            navigate(`/expired/${code}`);
-            return;
-          }
-
-          if (data?.message === "QR not activated") {
-            setLoading(false);
-            return;
-          }
-
-          throw new Error(data?.message || "Failed to validate QR");
+      const res = await fetch(
+        `${API_BASE}/api/qr/${code}/activate`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
         }
+      );
 
-        navigate(`/emergency/${code}`);
-      } catch (err) {
-        if (err.name !== "AbortError") {
-          setError(err.message || "Server unreachable");
-          setLoading(false);
-        }
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data?.message || "Activation failed");
       }
+
+      navigate(`/emergency/${code}`);
+
+    } catch (err) {
+      setError(err.message || "Activation failed");
+    } finally {
+      setLoading(false);
     }
-
-    checkQR();
-
-    return () => controller.abort();
-  }, [code, navigate]);
-
-  if (loading) return <h2>Checking QR status...</h2>;
-  if (error) return <h2>{error}</h2>;
+  }
 
   return (
-    <div>
-      <h1>Activate QR</h1>
-      <p>QR Code: {code}</p>
-      <p>Please complete activation.</p>
+    <div style={{ padding: 40 }}>
+      <h1>Activate QR Code</h1>
+      <p>QR: {code}</p>
+
+      {error && <p style={{ color: "red" }}>{error}</p>}
+
+      <button
+        onClick={handleActivate}
+        disabled={loading}
+        style={{ marginTop: 20 }}
+      >
+        {loading ? "Activating..." : "Activate"}
+      </button>
     </div>
   );
 }

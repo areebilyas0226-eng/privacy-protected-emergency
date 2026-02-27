@@ -1,8 +1,11 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 
-const API_BASE =
-  "https://privacy-protected-emergency-production-581f.up.railway.app";
+const API_BASE = import.meta.env.VITE_API_URL;
+
+if (!API_BASE) {
+  throw new Error("VITE_API_URL is not defined");
+}
 
 export default function QRResolver() {
   const { code } = useParams();
@@ -10,20 +13,29 @@ export default function QRResolver() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!code) return;
+    if (!code) {
+      setError("Invalid QR code");
+      return;
+    }
+
+    const controller = new AbortController();
 
     async function resolveQR() {
       try {
-        const res = await fetch(`${API_BASE}/api/qr/${code}`);
-        const result = await res.json();
+        const res = await fetch(
+          `${API_BASE}/api/qr/${code}`,
+          { signal: controller.signal }
+        );
+
+        const data = await res.json().catch(() => ({}));
 
         if (res.status === 404) {
-          navigate("/not-found");
+          setError("QR not found");
           return;
         }
 
         if (res.status === 403) {
-          if (result.message === "QR expired") {
+          if (data?.message === "QR expired") {
             navigate(`/expired/${code}`);
           } else {
             navigate(`/activate/${code}`);
@@ -32,27 +44,26 @@ export default function QRResolver() {
         }
 
         if (!res.ok) {
-          throw new Error(result?.message || "Failed to resolve QR");
+          throw new Error(data?.message || "Failed to verify QR");
         }
 
-        // If active → emergency
+        // Active QR
         navigate(`/emergency/${code}`);
 
       } catch (err) {
-        setError("Unable to verify QR");
+        if (err.name !== "AbortError") {
+          setError("Unable to verify QR");
+        }
       }
     }
 
     resolveQR();
+    return () => controller.abort();
   }, [code, navigate]);
 
   if (error) {
-    return (
-      <div style={{ padding: "40px", color: "red" }}>
-        {error}
-      </div>
-    );
+    return <div style={{ padding: 40, color: "red" }}>{error}</div>;
   }
 
-  return <div style={{ padding: "40px" }}>Checking QR status...</div>;
+  return <div style={{ padding: 40 }}>Checking QR status...</div>;
 }

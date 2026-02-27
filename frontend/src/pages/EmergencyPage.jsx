@@ -1,9 +1,15 @@
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { API_BASE_URL } from "../config";
+
+const API_BASE = import.meta.env.VITE_API_URL;
+
+if (!API_BASE) {
+  throw new Error("VITE_API_URL is not defined");
+}
 
 export default function EmergencyPage() {
   const { code } = useParams();
+  const navigate = useNavigate();
 
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -11,25 +17,26 @@ export default function EmergencyPage() {
   const [calling, setCalling] = useState(false);
 
   useEffect(() => {
-    if (!code) {
-      setError("Invalid QR code");
-      setLoading(false);
-      return;
-    }
+    if (!code) return;
 
     const controller = new AbortController();
 
     async function fetchQR() {
       try {
         const res = await fetch(
-          `${API_BASE_URL}/api/qr/${code}`,
+          `${API_BASE}/api/qr/${code}`,
           { signal: controller.signal }
         );
 
         const result = await res.json().catch(() => ({}));
 
+        if (res.status === 403 && result?.message === "QR expired") {
+          navigate(`/expired/${code}`);
+          return;
+        }
+
         if (!res.ok) {
-          throw new Error(result?.message || "Failed to fetch QR data");
+          throw new Error(result?.message || "Failed to load QR");
         }
 
         setData(result);
@@ -44,19 +51,19 @@ export default function EmergencyPage() {
 
     fetchQR();
     return () => controller.abort();
-  }, [code]);
+  }, [code, navigate]);
 
   async function handleCallOwner() {
     if (!data?.owner_mobile) {
-      alert("Owner mobile not available");
+      alert("Owner mobile unavailable");
       return;
     }
 
     try {
       setCalling(true);
 
-      const res = await fetch(
-        `${API_BASE_URL}/api/qr/${code}/contact`,
+      await fetch(
+        `${API_BASE}/api/qr/${code}/contact`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -64,33 +71,22 @@ export default function EmergencyPage() {
         }
       );
 
-      const result = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        throw new Error(result?.message || "Contact failed");
-      }
-
       window.location.href = `tel:${data.owner_mobile}`;
-    } catch (err) {
-      alert(err.message);
+    } catch {
+      alert("Call failed");
     } finally {
       setCalling(false);
     }
   }
 
   if (loading) return <h2 style={{ padding: 40 }}>Loading...</h2>;
-  if (error)
-    return (
-      <div style={{ padding: 40, color: "red" }}>
-        <h2>{error}</h2>
-      </div>
-    );
+  if (error) return <div style={{ padding: 40, color: "red" }}>{error}</div>;
 
   return (
     <div style={{ padding: 40 }}>
       <h1>Emergency Mode</h1>
 
-      <p><strong>QR Code:</strong> {data?.qr_code}</p>
+      <p><strong>QR:</strong> {data?.qr_code}</p>
       <p><strong>Vehicle:</strong> {data?.vehicle_number || "-"}</p>
       <p><strong>Model:</strong> {data?.model || "-"}</p>
       <p><strong>Blood Group:</strong> {data?.blood_group || "-"}</p>
@@ -104,8 +100,7 @@ export default function EmergencyPage() {
           backgroundColor: "red",
           color: "white",
           border: "none",
-          borderRadius: 6,
-          cursor: "pointer"
+          borderRadius: 6
         }}
       >
         {calling ? "Connecting..." : "Call Owner"}

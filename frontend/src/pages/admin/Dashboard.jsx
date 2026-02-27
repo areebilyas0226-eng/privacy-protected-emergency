@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import DashboardLayout from "../../components/layout/DashboardLayout";
 
 const API_BASE = import.meta.env.VITE_API_URL;
 
@@ -8,7 +9,7 @@ if (!API_BASE) {
 
 const buildUrl = (path) => `${API_BASE}/api${path}`;
 
-export default function AdminDashboard() {
+export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("orders");
 
   const [orders, setOrders] = useState([]);
@@ -86,11 +87,11 @@ export default function AdminDashboard() {
   }, [loadData]);
 
   /* =========================
-     CREATE ORDER
+     ACTIONS
   ========================= */
+
   async function handleCreateOrder() {
     const { customer_name, mobile, quantity } = orderForm;
-
     if (!customer_name || !mobile || !quantity) {
       alert("All fields required");
       return;
@@ -118,12 +119,8 @@ export default function AdminDashboard() {
     }
   }
 
-  /* =========================
-     GENERATE BATCH
-  ========================= */
   async function handleGenerateBatch() {
     const { batch_name, agent_name, quantity } = batchForm;
-
     if (!batch_name || !quantity) {
       alert("Batch name and quantity required");
       return;
@@ -151,51 +148,65 @@ export default function AdminDashboard() {
     }
   }
 
-  if (loading) return <h2 style={{ padding: 40 }}>Loading...</h2>;
-  if (error) return <h2 style={{ padding: 40, color: "red" }}>{error}</h2>;
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <h2>Loading...</h2>
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <h2 style={{ color: "red" }}>{error}</h2>
+      </DashboardLayout>
+    );
+  }
 
   return (
-    <div style={{ padding: 40 }}>
-      <h1>Admin Panel</h1>
+    <DashboardLayout>
+      <h1 style={{ marginBottom: 30 }}>Admin Panel</h1>
 
+      {/* TABS */}
       <div style={{ marginBottom: 30 }}>
-        <button onClick={() => setActiveTab("orders")}>Tag Orders</button>
-        <button onClick={() => setActiveTab("batch")}>Generate QR Batch</button>
-        <button onClick={() => setActiveTab("inventory")}>QR Inventory</button>
+        <button onClick={() => setActiveTab("orders")}>Orders</button>
+        <button onClick={() => setActiveTab("batch")}>Batches</button>
+        <button onClick={() => setActiveTab("inventory")}>Inventory</button>
       </div>
 
+      {/* ORDERS */}
       {activeTab === "orders" && (
-        <div>
+        <>
           <h2>Create Order</h2>
 
-          <input
-            placeholder="Customer / Agent Name"
-            value={orderForm.customer_name}
-            onChange={(e) =>
-              setOrderForm({ ...orderForm, customer_name: e.target.value })
-            }
-          />
-          <input
-            placeholder="Mobile"
-            value={orderForm.mobile}
-            onChange={(e) =>
-              setOrderForm({ ...orderForm, mobile: e.target.value })
-            }
-          />
-          <input
-            type="number"
-            placeholder="Quantity"
-            value={orderForm.quantity}
-            onChange={(e) =>
-              setOrderForm({ ...orderForm, quantity: e.target.value })
-            }
-          />
+          <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+            <input
+              placeholder="Customer Name"
+              value={orderForm.customer_name}
+              onChange={(e) =>
+                setOrderForm({ ...orderForm, customer_name: e.target.value })
+              }
+            />
+            <input
+              placeholder="Mobile"
+              value={orderForm.mobile}
+              onChange={(e) =>
+                setOrderForm({ ...orderForm, mobile: e.target.value })
+              }
+            />
+            <input
+              type="number"
+              placeholder="Quantity"
+              value={orderForm.quantity}
+              onChange={(e) =>
+                setOrderForm({ ...orderForm, quantity: e.target.value })
+              }
+            />
+            <button onClick={handleCreateOrder}>Place</button>
+          </div>
 
-          <button onClick={handleCreateOrder}>Place Order</button>
-
-          <h3 style={{ marginTop: 40 }}>Recent Orders</h3>
-
-          <table border="1" cellPadding="8">
+          <table border="1" cellPadding="8" width="100%">
             <thead>
               <tr>
                 <th>Name</th>
@@ -221,39 +232,41 @@ export default function AdminDashboard() {
               )}
             </tbody>
           </table>
-        </div>
+        </>
       )}
 
+      {/* BATCHES */}
       {activeTab === "batch" && (
-        <div>
-          <h2>Generate QR Batch</h2>
+        <>
+          <h2>Generate Batch</h2>
 
-          <input
-            placeholder="Batch Name"
-            value={batchForm.batch_name}
-            onChange={(e) =>
-              setBatchForm({ ...batchForm, batch_name: e.target.value })
-            }
-          />
-          <input
-            placeholder="Agent Name"
-            value={batchForm.agent_name}
-            onChange={(e) =>
-              setBatchForm({ ...batchForm, agent_name: e.target.value })
-            }
-          />
-          <input
-            type="number"
-            placeholder="Quantity"
-            value={batchForm.quantity}
-            onChange={(e) =>
-              setBatchForm({ ...batchForm, quantity: e.target.value })
-            }
-          />
+          <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+            <input
+              placeholder="Batch Name"
+              value={batchForm.batch_name}
+              onChange={(e) =>
+                setBatchForm({ ...batchForm, batch_name: e.target.value })
+              }
+            />
+            <input
+              placeholder="Agent Name"
+              value={batchForm.agent_name}
+              onChange={(e) =>
+                setBatchForm({ ...batchForm, agent_name: e.target.value })
+              }
+            />
+            <input
+              type="number"
+              placeholder="Quantity"
+              value={batchForm.quantity}
+              onChange={(e) =>
+                setBatchForm({ ...batchForm, quantity: e.target.value })
+              }
+            />
+            <button onClick={handleGenerateBatch}>Generate</button>
+          </div>
 
-          <button onClick={handleGenerateBatch}>Generate</button>
-
-          <table border="1" cellPadding="8" style={{ marginTop: 40 }}>
+          <table border="1" cellPadding="8" width="100%">
             <thead>
               <tr>
                 <th>Batch</th>
@@ -275,14 +288,15 @@ export default function AdminDashboard() {
               )}
             </tbody>
           </table>
-        </div>
+        </>
       )}
 
+      {/* INVENTORY */}
       {activeTab === "inventory" && (
-        <div>
-          <h2>QR Inventory</h2>
+        <>
+          <h2>Inventory</h2>
 
-          <table border="1" cellPadding="8">
+          <table border="1" cellPadding="8" width="100%">
             <thead>
               <tr>
                 <th>QR Code</th>
@@ -314,8 +328,8 @@ export default function AdminDashboard() {
               )}
             </tbody>
           </table>
-        </div>
+        </>
       )}
-    </div>
+    </DashboardLayout>
   );
 }

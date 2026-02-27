@@ -2,44 +2,45 @@ import { useState } from "react";
 
 const API_BASE = import.meta.env.VITE_API_URL;
 
+if (!API_BASE) {
+  throw new Error("VITE_API_URL is not defined");
+}
+
 export default function AdminLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   async function handleLogin(e) {
     e.preventDefault();
 
-    if (!API_BASE) {
-      alert("API not configured");
-      return;
-    }
-
     if (!email || !password) {
-      alert("All fields required");
+      setError("All fields required");
       return;
     }
 
     try {
       setLoading(true);
+      setError("");
 
       const res = await fetch(`${API_BASE}/api/admin/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password })
       });
 
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        alert(data.message || "Login failed");
-        return;
+        throw new Error(data?.message || "Login failed");
       }
 
-      window.location.href = "/admin";
+      window.location.replace("/admin");
+
     } catch (err) {
-      alert("Network error");
+      setError(err.message || "Network error");
     } finally {
       setLoading(false);
     }
@@ -48,6 +49,8 @@ export default function AdminLogin() {
   return (
     <div style={{ padding: 40 }}>
       <h2>Admin Login</h2>
+
+      {error && <p style={{ color: "red" }}>{error}</p>}
 
       <form onSubmit={handleLogin}>
         <input

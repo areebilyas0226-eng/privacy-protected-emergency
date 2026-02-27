@@ -5,7 +5,7 @@ import QRResolver from "./pages/QRResolver";
 import ActivatePage from "./pages/ActivatePage";
 import EmergencyPage from "./pages/EmergencyPage";
 import ExpiredPage from "./pages/ExpiredPage";
-import AdminDashboard from "./pages/AdminDashboard";
+import AdminDashboard from "./pages/admin/Dashboard";
 import AdminLogin from "./pages/AdminLogin";
 
 /* ===============================
