@@ -13,26 +13,25 @@ import AdminLogin from "./pages/AdminLogin";
 =============================== */
 const API_BASE = import.meta.env.VITE_API_URL;
 
+if (!API_BASE) {
+  console.error("VITE_API_URL is not defined");
+}
+
 /* ===============================
-   Protected Route (JWT Verified)
+   Protected Route
 =============================== */
 function ProtectedRoute({ children }) {
   const [loading, setLoading] = useState(true);
   const [isAuth, setIsAuth] = useState(false);
 
   useEffect(() => {
-    if (!API_BASE) {
-      setLoading(false);
-      return;
-    }
-
     async function checkAuth() {
       try {
-        const res = await fetch(`${API_BASE}/admin/orders`, {
+        const res = await fetch(`${API_BASE}/api/admin/orders`, {
           credentials: "include",
         });
 
-        setIsAuth(res.status === 200);
+        setIsAuth(res.ok);
       } catch {
         setIsAuth(false);
       } finally {
@@ -40,7 +39,11 @@ function ProtectedRoute({ children }) {
       }
     }
 
-    checkAuth();
+    if (API_BASE) {
+      checkAuth();
+    } else {
+      setLoading(false);
+    }
   }, []);
 
   if (loading) return null;
@@ -56,21 +59,15 @@ function App() {
     <BrowserRouter>
       <Routes>
 
-        {/* Root → Redirect to Admin Login */}
         <Route path="/" element={<Navigate to="/admin-login" replace />} />
 
-        {/* Public QR */}
         <Route path="/qr/:code" element={<QRResolver />} />
-
-        {/* Activation Flow */}
         <Route path="/activate/:code" element={<ActivatePage />} />
         <Route path="/emergency/:code" element={<EmergencyPage />} />
         <Route path="/expired/:code" element={<ExpiredPage />} />
 
-        {/* Admin Login */}
         <Route path="/admin-login" element={<AdminLogin />} />
 
-        {/* Protected Admin Dashboard */}
         <Route
           path="/admin"
           element={
@@ -80,7 +77,6 @@ function App() {
           }
         />
 
-        {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
 
       </Routes>
