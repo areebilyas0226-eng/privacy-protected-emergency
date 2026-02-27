@@ -1,6 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 const API_BASE = import.meta.env.VITE_API_BASE;
+
+if (!API_BASE) {
+  throw new Error("VITE_API_BASE is not defined");
+}
+
+function buildUrl(path) {
+  return `${API_BASE}/api${path}`;
+}
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("orders");
@@ -28,37 +36,21 @@ export default function AdminDashboard() {
      SAFE API WRAPPER
   ========================= */
   async function apiFetch(path, options = {}) {
-    if (!API_BASE) {
-      throw new Error("VITE_API_BASE not defined");
-    }
-
-    const res = await fetch(`${API_BASE}/api${path}`, {
+    const res = await fetch(buildUrl(path), {
       credentials: "include",
-      cache: "no-store",
-      ...options,
       headers: {
         "Content-Type": "application/json",
         ...options.headers
-      }
+      },
+      ...options
     });
 
     if (res.status === 401) {
-      window.location.href = "/admin-login";
+      window.location.replace("/admin-login");
       throw new Error("Unauthorized");
     }
 
-    if (res.status === 404) {
-      throw new Error(`Route not found: ${path}`);
-    }
-
-    const text = await res.text();
-    let data = {};
-
-    try {
-      data = text ? JSON.parse(text) : {};
-    } catch {
-      data = {};
-    }
+    const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
       throw new Error(data.message || `HTTP ${res.status}`);
@@ -70,30 +62,30 @@ export default function AdminDashboard() {
   /* =========================
      LOAD DATA
   ========================= */
-  async function loadData() {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
 
       const [ordersRes, batchesRes, inventoryRes] = await Promise.all([
-        apiFetch("/admin/orders").catch(() => ({ data: [] })),
-        apiFetch("/admin/batches").catch(() => ({ data: [] })),
-        apiFetch("/admin/inventory").catch(() => ({ data: [] }))
+        apiFetch("/admin/orders"),
+        apiFetch("/admin/batches"),
+        apiFetch("/admin/inventory")
       ]);
 
-      setOrders(Array.isArray(ordersRes.data) ? ordersRes.data : []);
-      setBatches(Array.isArray(batchesRes.data) ? batchesRes.data : []);
-      setInventory(Array.isArray(inventoryRes.data) ? inventoryRes.data : []);
+      setOrders(Array.isArray(ordersRes?.data) ? ordersRes.data : []);
+      setBatches(Array.isArray(batchesRes?.data) ? batchesRes.data : []);
+      setInventory(Array.isArray(inventoryRes?.data) ? inventoryRes.data : []);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   /* =========================
      CREATE ORDER
@@ -107,7 +99,7 @@ export default function AdminDashboard() {
     }
 
     try {
-      await apiFetch("/admin/orders", {
+      const res = await apiFetch("/admin/orders", {
         method: "POST",
         body: JSON.stringify({
           customer_name,
@@ -118,16 +110,11 @@ export default function AdminDashboard() {
 
       setOrderForm({ customer_name: "", mobile: "", quantity: "" });
 
-      setOrders((prev) => [
-        ...prev,
-        {
-          customer_name,
-          mobile,
-          quantity_ordered: Number(quantity),
-          quantity_fulfilled: 0,
-          status: "pending"
-        }
-      ]);
+      if (res?.data) {
+        setOrders((prev) => [res.data, ...prev]);
+      } else {
+        loadData();
+      }
     } catch (err) {
       alert(err.message);
     }
@@ -145,7 +132,7 @@ export default function AdminDashboard() {
     }
 
     try {
-      await apiFetch("/admin/generate-batch", {
+      const res = await apiFetch("/admin/generate-batch", {
         method: "POST",
         body: JSON.stringify({
           batch_name,
@@ -156,11 +143,19 @@ export default function AdminDashboard() {
 
       setBatchForm({ batch_name: "", agent_name: "", quantity: "" });
 
-      loadData(); // inventory changes, so reload
+      if (res?.data) {
+        setBatches((prev) => [res.data, ...prev]);
+      } else {
+        loadData();
+      }
     } catch (err) {
       alert(err.message);
     }
   }
+
+  /* =========================
+     RENDER
+  ========================= */
 
   if (loading) return <h2 style={{ padding: 40 }}>Loading...</h2>;
   if (error) return <h2 style={{ padding: 40, color: "red" }}>{error}</h2>;
@@ -224,8 +219,8 @@ export default function AdminDashboard() {
                   <td colSpan="5">No orders found</td>
                 </tr>
               ) : (
-                orders.map((o, idx) => (
-                  <tr key={o.id || idx}>
+                orders.map((o) => (
+                  <tr key={o.id}>
                     <td>{o.customer_name}</td>
                     <td>{o.mobile}</td>
                     <td>{o.quantity_ordered}</td>
@@ -286,8 +281,8 @@ export default function AdminDashboard() {
                   <td colSpan="3">No batches found</td>
                 </tr>
               ) : (
-                batches.map((b, idx) => (
-                  <tr key={b.id || idx}>
+                batches.map((b) => (
+                  <tr key={b.id}>
                     <td>{b.batch_name}</td>
                     <td>{b.agent_name || "-"}</td>
                     <td>{b.quantity}</td>
@@ -318,8 +313,8 @@ export default function AdminDashboard() {
                   <td colSpan="4">No inventory found</td>
                 </tr>
               ) : (
-                inventory.map((i, idx) => (
-                  <tr key={i.qr_code || idx}>
+                inventory.map((i) => (
+                  <tr key={i.qr_code}>
                     <td>{i.qr_code}</td>
                     <td>{i.batch_name || "-"}</td>
                     <td>{i.status}</td>
