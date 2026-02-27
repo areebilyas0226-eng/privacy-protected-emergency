@@ -1,10 +1,6 @@
 import { useState } from "react";
 
-const API_BASE = import.meta.env.VITE_API_BASE;
-
-if (!API_BASE) {
-  throw new Error("VITE_API_BASE is not defined");
-}
+const API_BASE = import.meta.env.VITE_API_URL;
 
 export default function AdminLogin() {
   const [email, setEmail] = useState("");
@@ -14,8 +10,13 @@ export default function AdminLogin() {
   async function handleLogin(e) {
     e.preventDefault();
 
+    if (!API_BASE) {
+      alert("API not configured");
+      return;
+    }
+
     if (!email || !password) {
-      alert("Email and password required");
+      alert("All fields required");
       return;
     }
 
@@ -24,11 +25,9 @@ export default function AdminLogin() {
 
       const res = await fetch(`${API_BASE}/api/admin/login`, {
         method: "POST",
-        credentials: "include", // 🔥 required for httpOnly JWT cookie
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ email, password })
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, password }),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -38,10 +37,9 @@ export default function AdminLogin() {
         return;
       }
 
-      // No localStorage token if using cookies
-      window.location.replace("/admin");
+      window.location.href = "/admin";
     } catch (err) {
-      alert("Network error. Check backend.");
+      alert("Network error");
     } finally {
       setLoading(false);
     }
@@ -53,23 +51,18 @@ export default function AdminLogin() {
 
       <form onSubmit={handleLogin}>
         <input
-          type="email"
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
-
         <br /><br />
-
         <input
           type="password"
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-
         <br /><br />
-
         <button type="submit" disabled={loading}>
           {loading ? "Logging in..." : "Login"}
         </button>
