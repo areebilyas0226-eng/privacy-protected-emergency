@@ -3,8 +3,13 @@ import express from "express";
 export default function qrRoutes(pool) {
   const router = express.Router();
 
+  /* =========================
+     HELPERS
+  ========================= */
+
+  // DO NOT mutate case of UUID
   function normalize(code) {
-    return code?.trim().toUpperCase() || null;
+    return code?.trim() || null;
   }
 
   function getClientIP(req) {
@@ -19,12 +24,13 @@ export default function qrRoutes(pool) {
   /* =========================
      TEST
   ========================= */
-  router.get("/test", (req, res) => {
-    res.json({ message: "QR route working" });
+  router.get("/test", (_, res) => {
+    return res.json({ message: "QR route working" });
   });
 
   /* =========================
      CREATE QR
+     POST /api/qr
   ========================= */
   router.post("/", async (req, res) => {
     let { qr_code, type } = req.body;
@@ -142,13 +148,17 @@ export default function qrRoutes(pool) {
         return res.status(404).json({ message: "Profile not found" });
       }
 
+      // Fire-and-forget logging
       pool.query(
         `INSERT INTO emergency_logs (qr_tag_id, action_type, caller_ip)
          VALUES ($1, 'view', $2)`,
         [qr.id, getClientIP(req)]
       ).catch(console.error);
 
-      return res.json({ type: qr.type, data: profile });
+      return res.json({
+        type: qr.type,
+        data: profile
+      });
     } catch (err) {
       console.error("PUBLIC RESOLVER ERROR:", err);
       return res.status(500).json({ message: "Server error" });
@@ -156,7 +166,7 @@ export default function qrRoutes(pool) {
   });
 
   /* =========================
-     ADMIN FETCH (MUST BE LAST)
+     ADMIN FETCH (MUST STAY LAST)
      GET /api/qr/:code
   ========================= */
   router.get("/:code", async (req, res) => {
