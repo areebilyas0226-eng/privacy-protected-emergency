@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const API_BASE = import.meta.env.VITE_API_URL;
 
@@ -12,10 +12,40 @@ export default function ActivatePage() {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [error, setError] = useState("");
+  const [qrValid, setQrValid] = useState(false);
 
-  async function handleActivate() {
+  /* ===============================
+     Validate QR On Page Load
+  =============================== */
+  useEffect(() => {
     if (!code) return;
+
+    async function validateQR() {
+      try {
+        const res = await fetch(`${API_BASE}/api/qr/${code}`);
+
+        if (!res.ok) {
+          throw new Error("QR not found");
+        }
+
+        setQrValid(true);
+      } catch (err) {
+        setError("QR not found");
+      } finally {
+        setChecking(false);
+      }
+    }
+
+    validateQR();
+  }, [code]);
+
+  /* ===============================
+     Activate Handler
+  =============================== */
+  async function handleActivate() {
+    if (!code || !qrValid) return;
 
     try {
       setLoading(true);
@@ -29,19 +59,36 @@ export default function ActivatePage() {
         }
       );
 
-      const data = await res.json().catch(() => ({}));
+      let data = {};
+      try {
+        data = await res.json();
+      } catch (_) {}
 
       if (!res.ok) {
         throw new Error(data?.message || "Activation failed");
       }
 
       navigate(`/emergency/${code}`);
-
     } catch (err) {
       setError(err.message || "Activation failed");
     } finally {
       setLoading(false);
     }
+  }
+
+  /* ===============================
+     UI STATES
+  =============================== */
+  if (checking) {
+    return <div style={{ padding: 40 }}>Checking QR...</div>;
+  }
+
+  if (error && !qrValid) {
+    return (
+      <div style={{ padding: 40 }}>
+        <h2 style={{ color: "red" }}>{error}</h2>
+      </div>
+    );
   }
 
   return (
