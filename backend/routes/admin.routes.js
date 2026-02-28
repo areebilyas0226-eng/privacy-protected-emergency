@@ -7,9 +7,6 @@ import adminAuth from "../middleware/adminAuth.js";
 export default function adminRoutes(pool) {
   const router = express.Router();
 
-  /* ===============================
-     ENV VALIDATION (FAIL FAST)
-  =============================== */
   if (
     !process.env.ADMIN_EMAIL ||
     !process.env.ADMIN_PASSWORD_HASH ||
@@ -19,22 +16,18 @@ export default function adminRoutes(pool) {
   }
 
   /* ===============================
-     LOGIN (PUBLIC)
+     LOGIN
   =============================== */
   router.post("/login", async (req, res) => {
     try {
       const { email, password } = req.body;
 
       if (!email || !password) {
-        return res
-          .status(400)
-          .json({ message: "Email and password required" });
+        return res.status(400).json({ message: "Email and password required" });
       }
 
-      const normalizedEmail = email.trim().toLowerCase();
-
       if (
-        normalizedEmail !==
+        email.trim().toLowerCase() !==
         process.env.ADMIN_EMAIL.trim().toLowerCase()
       ) {
         return res.status(401).json({ message: "Invalid credentials" });
@@ -52,27 +45,22 @@ export default function adminRoutes(pool) {
       const token = jwt.sign(
         { role: "admin" },
         process.env.JWT_SECRET,
-        {
-          expiresIn: "1h",
-          algorithm: "HS256"
-        }
+        { expiresIn: "1h" }
       );
 
       res.cookie("admin_token", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite:
-          process.env.NODE_ENV === "production"
-            ? "none"
-            : "lax",
+          process.env.NODE_ENV === "production" ? "none" : "lax",
         maxAge: 60 * 60 * 1000
       });
 
-      return res.json({ message: "Login successful" });
+      res.json({ message: "Login successful" });
 
     } catch (err) {
-      console.error("Login error:", err);
-      return res.status(500).json({ message: "Login failed" });
+      console.error(err);
+      res.status(500).json({ message: "Login failed" });
     }
   });
 
@@ -82,33 +70,20 @@ export default function adminRoutes(pool) {
   router.use(adminAuth);
 
   /* ===============================
-     LOGOUT
+     CREATE ORDER  ✅ FIX
   =============================== */
-  router.post("/logout", (req, res) => {
-    res.clearCookie("admin_token", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite:
-        process.env.NODE_ENV === "production"
-          ? "none"
-          : "lax"
-    });
+  router.post("/orders", async (req, res) => {
+    const { customer_name, mobile, quantity } = req.body;
 
-    res.json({ message: "Logged out" });
-  });
-
-  /* ===============================
-     GENERATE BATCH (OPTIMIZED)
-  =============================== */
-  router.post("/generate-batch", async (req, res) => {
-    const quantity = Number(req.body.quantity);
-    const batch_name =
-      req.body.batch_name || `Batch-${Date.now()}`;
-    const agent_name = req.body.agent_name || null;
-
-    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 5000) {
+    if (!customer_name || !mobile || !quantity) {
       return res.status(400).json({
-        message: "Valid quantity required (1–5000)"
+        message: "customer_name, mobile, quantity required"
+      });
+    }
+
+    if (!Number.isInteger(Number(quantity)) || quantity < 1 || quantity > 100) {
+      return res.status(400).json({
+        message: "Valid quantity required (1–100)"
       });
     }
 
@@ -117,65 +92,28 @@ export default function adminRoutes(pool) {
     try {
       await client.query("BEGIN");
 
-      const batchResult = await client.query(
+      const orderResult = await client.query(
         `
-        INSERT INTO qr_batches (batch_name, agent_name, quantity)
-        VALUES ($1, $2, $3)
+        INSERT INTO tag_orders (customer_name, mobile, quantity, status)
+        VALUES ($1, $2, $3, 'pending')
         RETURNING *
         `,
-        [batch_name, agent_name, quantity]
-      );
-
-      const batch = batchResult.rows[0];
-
-      // BULK INSERT
-      const values = [];
-      const placeholders = [];
-
-      for (let i = 0; i < quantity; i++) {
-        const qr_code = uuidv4().toUpperCase();
-        values.push(qr_code, batch.id);
-
-        const index = i * 2;
-        placeholders.push(
-          `($${index + 1}, 'vehicle', 'inactive', 'yearly', 0, $${index + 2})`
-        );
-      }
-
-      await client.query(
-        `
-        INSERT INTO qr_tags 
-        (qr_code, type, status, plan_type, price_paid, batch_id)
-        VALUES ${placeholders.join(",")}
-        `,
-        values
+        [customer_name, mobile, quantity]
       );
 
       await client.query("COMMIT");
 
-      res.json({ message: "Batch generated", data: batch });
+      res.json({
+        message: "Order created",
+        data: orderResult.rows[0]
+      });
 
     } catch (err) {
       await client.query("ROLLBACK");
-      console.error("Batch error:", err);
-      res.status(500).json({ message: "Batch generation failed" });
+      console.error("Order error:", err);
+      res.status(500).json({ message: "Order creation failed" });
     } finally {
       client.release();
-    }
-  });
-
-  /* ===============================
-     LIST BATCHES
-  =============================== */
-  router.get("/batches", async (req, res) => {
-    try {
-      const result = await pool.query(
-        `SELECT * FROM qr_batches ORDER BY created_at DESC`
-      );
-      res.json({ data: result.rows });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ message: "Failed to fetch batches" });
     }
   });
 
@@ -189,8 +127,21 @@ export default function adminRoutes(pool) {
       );
       res.json({ data: result.rows });
     } catch (err) {
-      console.error(err);
       res.status(500).json({ message: "Failed to fetch orders" });
+    }
+  });
+
+  /* ===============================
+     BATCHES
+  =============================== */
+  router.get("/batches", async (req, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT * FROM qr_batches ORDER BY created_at DESC`
+      );
+      res.json({ data: result.rows });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch batches" });
     }
   });
 
@@ -207,14 +158,13 @@ export default function adminRoutes(pool) {
           q.created_at
         FROM qr_tags q
         LEFT JOIN qr_batches b
-          ON q.batch_id = b.id
+        ON q.batch_id = b.id
         ORDER BY q.created_at DESC
         LIMIT 500
       `);
 
       res.json({ data: result.rows });
     } catch (err) {
-      console.error(err);
       res.status(500).json({ message: "Failed to fetch inventory" });
     }
   });
