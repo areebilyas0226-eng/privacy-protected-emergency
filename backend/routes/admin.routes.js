@@ -22,25 +22,22 @@ export default function adminRoutes(pool) {
     try {
       const { email, password } = req.body;
 
-      if (!email || !password) {
+      if (!email || !password)
         return res.status(400).json({ message: "Email and password required" });
-      }
 
       if (
         email.trim().toLowerCase() !==
         process.env.ADMIN_EMAIL.trim().toLowerCase()
-      ) {
+      )
         return res.status(401).json({ message: "Invalid credentials" });
-      }
 
       const isMatch = await bcrypt.compare(
         password,
         process.env.ADMIN_PASSWORD_HASH
       );
 
-      if (!isMatch) {
+      if (!isMatch)
         return res.status(401).json({ message: "Invalid credentials" });
-      }
 
       const token = jwt.sign(
         { role: "admin" },
@@ -51,8 +48,7 @@ export default function adminRoutes(pool) {
       res.cookie("admin_token", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite:
-          process.env.NODE_ENV === "production" ? "none" : "lax",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
         maxAge: 60 * 60 * 1000
       });
 
@@ -64,62 +60,123 @@ export default function adminRoutes(pool) {
     }
   });
 
-  /* ===============================
-     PROTECT BELOW
-  =============================== */
   router.use(adminAuth);
 
-  
   /* ===============================
-   CREATE ORDER
-=============================== */
-router.post("/orders", async (req, res) => {
-  const { customer_name, mobile, quantity } = req.body;
+     CREATE ORDER
+  =============================== */
+  router.post("/orders", async (req, res) => {
+    const { customer_name, mobile, quantity } = req.body;
+    const qty = Number(quantity);
 
-  const qty = Number(quantity);
+    if (!customer_name || !mobile || !qty)
+      return res.status(400).json({ message: "All fields required" });
 
-  if (!customer_name || !mobile || !qty) {
-    return res.status(400).json({
-      message: "customer_name, mobile, quantity required"
-    });
-  }
+    if (!Number.isInteger(qty) || qty < 1 || qty > 100)
+      return res.status(400).json({ message: "Invalid quantity (1–100)" });
 
-  if (!Number.isInteger(qty) || qty < 1 || qty > 100) {
-    return res.status(400).json({
-      message: "Valid quantity required (1–100)"
-    });
-  }
+    try {
+      const result = await pool.query(
+        `INSERT INTO tag_orders
+        (customer_name, mobile, quantity_ordered, quantity_fulfilled, status)
+        VALUES ($1,$2,$3,0,'pending')
+        RETURNING *`,
+        [customer_name.trim(), mobile.trim(), qty]
+      );
 
-  const client = await pool.connect();
+      res.json({ data: result.rows[0] });
 
-  try {
-    await client.query("BEGIN");
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Order creation failed" });
+    }
+  });
 
-    const orderResult = await client.query(
-      `
-      INSERT INTO tag_orders
-      (customer_name, mobile, quantity_ordered, quantity_fulfilled, status)
-      VALUES ($1, $2, $3, 0, 'pending')
-      RETURNING *
-      `,
-      [customer_name.trim(), mobile.trim(), qty]
-    );
+  /* ===============================
+     GENERATE QR BATCH
+  =============================== */
+  router.post("/generate-batch", async (req, res) => {
+    const { quantity } = req.body;
+    const qty = Number(quantity);
 
-    await client.query("COMMIT");
+    if (!Number.isInteger(qty) || qty < 1)
+      return res.status(400).json({ message: "Invalid quantity" });
 
-    res.json({
-      message: "Order created",
-      data: orderResult.rows[0]
-    });
+    const client = await pool.connect();
 
-  } catch (err) {
-    await client.query("ROLLBACK");
-    console.error("Order error:", err);
-    res.status(500).json({ message: "Order creation failed" });
-  } finally {
-    client.release();
-  }
-});
+    try {
+      await client.query("BEGIN");
+
+      const orderResult = await client.query(
+        `SELECT * FROM tag_orders
+         WHERE status='pending'
+         ORDER BY created_at ASC
+         LIMIT 1`
+      );
+
+      if (orderResult.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          message: "No pending orders. Create order first."
+        });
+      }
+
+      const order = orderResult.rows[0];
+      const remaining =
+        order.quantity_ordered - order.quantity_fulfilled;
+
+      if (qty > remaining) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          message: `Only ${remaining} QR allowed for this order`
+        });
+      }
+
+      // Create batch record
+      const batchResult = await client.query(
+        `INSERT INTO qr_batches (batch_name)
+         VALUES ($1)
+         RETURNING *`,
+        [`Batch-${Date.now()}`]
+      );
+
+      const batchId = batchResult.rows[0].id;
+
+      // Generate QR tags
+      for (let i = 0; i < qty; i++) {
+        await client.query(
+          `INSERT INTO qr_tags
+          (qr_code, status, type, batch_id)
+          VALUES ($1,'inactive','vehicle',$2)`,
+          [uuidv4(), batchId]
+        );
+      }
+
+      // Update order fulfillment
+      await client.query(
+        `UPDATE tag_orders
+         SET quantity_fulfilled = quantity_fulfilled + $1,
+             status = CASE
+               WHEN quantity_fulfilled + $1 >= quantity_ordered
+               THEN 'completed'
+               ELSE 'pending'
+             END
+         WHERE id=$2`,
+        [qty, order.id]
+      );
+
+      await client.query("COMMIT");
+
+      res.json({ message: "QR batch generated successfully" });
+
+    } catch (err) {
+      await client.query("ROLLBACK");
+      console.error(err);
+      res.status(500).json({ message: "Batch generation failed" });
+    } finally {
+      client.release();
+    }
+  });
 
   /* ===============================
      LIST ORDERS
@@ -130,7 +187,7 @@ router.post("/orders", async (req, res) => {
         `SELECT * FROM tag_orders ORDER BY created_at DESC`
       );
       res.json({ data: result.rows });
-    } catch (err) {
+    } catch {
       res.status(500).json({ message: "Failed to fetch orders" });
     }
   });
@@ -144,7 +201,7 @@ router.post("/orders", async (req, res) => {
         `SELECT * FROM qr_batches ORDER BY created_at DESC`
       );
       res.json({ data: result.rows });
-    } catch (err) {
+    } catch {
       res.status(500).json({ message: "Failed to fetch batches" });
     }
   });
@@ -168,7 +225,8 @@ router.post("/orders", async (req, res) => {
       `);
 
       res.json({ data: result.rows });
-    } catch (err) {
+
+    } catch {
       res.status(500).json({ message: "Failed to fetch inventory" });
     }
   });
