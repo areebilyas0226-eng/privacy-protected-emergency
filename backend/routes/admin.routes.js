@@ -69,53 +69,57 @@ export default function adminRoutes(pool) {
   =============================== */
   router.use(adminAuth);
 
+  
   /* ===============================
-     CREATE ORDER  ✅ FIX
-  =============================== */
-  router.post("/orders", async (req, res) => {
-    const { customer_name, mobile, quantity } = req.body;
+   CREATE ORDER
+=============================== */
+router.post("/orders", async (req, res) => {
+  const { customer_name, mobile, quantity } = req.body;
 
-    if (!customer_name || !mobile || !quantity) {
-      return res.status(400).json({
-        message: "customer_name, mobile, quantity required"
-      });
-    }
+  const qty = Number(quantity);
 
-    if (!Number.isInteger(Number(quantity)) || quantity < 1 || quantity > 100) {
-      return res.status(400).json({
-        message: "Valid quantity required (1–100)"
-      });
-    }
+  if (!customer_name || !mobile || !qty) {
+    return res.status(400).json({
+      message: "customer_name, mobile, quantity required"
+    });
+  }
 
-    const client = await pool.connect();
+  if (!Number.isInteger(qty) || qty < 1 || qty > 100) {
+    return res.status(400).json({
+      message: "Valid quantity required (1–100)"
+    });
+  }
 
-    try {
-      await client.query("BEGIN");
+  const client = await pool.connect();
 
-      const orderResult = await client.query(
-        `
-        INSERT INTO tag_orders (customer_name, mobile, quantity, status)
-        VALUES ($1, $2, $3, 'pending')
-        RETURNING *
-        `,
-        [customer_name, mobile, quantity]
-      );
+  try {
+    await client.query("BEGIN");
 
-      await client.query("COMMIT");
+    const orderResult = await client.query(
+      `
+      INSERT INTO tag_orders
+      (customer_name, mobile, quantity_ordered, quantity_fulfilled, status)
+      VALUES ($1, $2, $3, 0, 'pending')
+      RETURNING *
+      `,
+      [customer_name.trim(), mobile.trim(), qty]
+    );
 
-      res.json({
-        message: "Order created",
-        data: orderResult.rows[0]
-      });
+    await client.query("COMMIT");
 
-    } catch (err) {
-      await client.query("ROLLBACK");
-      console.error("Order error:", err);
-      res.status(500).json({ message: "Order creation failed" });
-    } finally {
-      client.release();
-    }
-  });
+    res.json({
+      message: "Order created",
+      data: orderResult.rows[0]
+    });
+
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Order error:", err);
+    res.status(500).json({ message: "Order creation failed" });
+  } finally {
+    client.release();
+  }
+});
 
   /* ===============================
      LIST ORDERS
