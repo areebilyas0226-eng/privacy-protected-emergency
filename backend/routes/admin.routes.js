@@ -134,10 +134,10 @@ export default function adminRoutes(pool) {
 
       // Create batch record
       const batchResult = await client.query(
-        `INSERT INTO qr_batches (batch_name)
-         VALUES ($1)
+        `INSERT INTO qr_batches (batch_name, quantity)
+         VALUES ($1, $2)
          RETURNING *`,
-        [`Batch-${Date.now()}`]
+        [`Batch-${Date.now()}`, qty]
       );
 
       const batchId = batchResult.rows[0].id;
