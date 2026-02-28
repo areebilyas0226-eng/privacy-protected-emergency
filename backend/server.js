@@ -78,7 +78,7 @@ app.use(
 );
 
 // Explicit preflight
-app.options("*", cors());
+app.options(/.*/, cors());
 
 app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
