@@ -3,11 +3,6 @@ import express from "express";
 export default function qrRoutes(pool) {
   const router = express.Router();
 
-  /* =========================
-     HELPERS
-  ========================= */
-
-  // DO NOT mutate case of UUID
   function normalize(code) {
     return code?.trim() || null;
   }
@@ -22,15 +17,7 @@ export default function qrRoutes(pool) {
   }
 
   /* =========================
-     TEST
-  ========================= */
-  router.get("/test", (_, res) => {
-    return res.json({ message: "QR route working" });
-  });
-
-  /* =========================
      CREATE QR
-     POST /api/qr
   ========================= */
   router.post("/", async (req, res) => {
     let { qr_code, type } = req.body;
@@ -50,6 +37,7 @@ export default function qrRoutes(pool) {
       );
 
       return res.status(201).json(result.rows[0]);
+
     } catch (err) {
       if (err.code === "23505") {
         return res.status(400).json({ message: "QR already exists" });
@@ -62,7 +50,6 @@ export default function qrRoutes(pool) {
 
   /* =========================
      ACTIVATE QR
-     POST /api/qr/:code/activate
   ========================= */
   router.post("/:code/activate", async (req, res) => {
     const code = normalize(req.params.code);
@@ -72,6 +59,20 @@ export default function qrRoutes(pool) {
     }
 
     try {
+      // Check existing status first
+      const existing = await pool.query(
+        `SELECT status FROM qr_tags WHERE qr_code = $1`,
+        [code]
+      );
+
+      if (!existing.rows.length) {
+        return res.status(404).json({ message: "QR not found" });
+      }
+
+      if (existing.rows[0].status === "active") {
+        return res.status(400).json({ message: "Already activated" });
+      }
+
       const result = await pool.query(
         `UPDATE qr_tags
          SET status = 'active',
@@ -82,14 +83,11 @@ export default function qrRoutes(pool) {
         [code]
       );
 
-      if (!result.rows.length) {
-        return res.status(404).json({ message: "QR not found" });
-      }
-
       return res.json({
         message: "QR activated successfully",
         qr: result.rows[0]
       });
+
     } catch (err) {
       console.error("ACTIVATE ERROR:", err);
       return res.status(500).json({ message: "Server error" });
@@ -98,7 +96,6 @@ export default function qrRoutes(pool) {
 
   /* =========================
      PUBLIC RESOLVER
-     GET /api/qr/p/:code
   ========================= */
   router.get("/p/:code", async (req, res) => {
     const code = normalize(req.params.code);
@@ -113,12 +110,12 @@ export default function qrRoutes(pool) {
          FROM qr_tags
          WHERE qr_code = $1
            AND status = 'active'
-           AND (subscription_expires_at IS NULL OR subscription_expires_at > NOW())`,
+           AND subscription_expires_at > NOW()`,
         [code]
       );
 
       if (!qrResult.rows.length) {
-        return res.status(404).json({ message: "QR not found or inactive" });
+        return res.status(404).json({ message: "QR not active or expired" });
       }
 
       const qr = qrResult.rows[0];
@@ -148,7 +145,7 @@ export default function qrRoutes(pool) {
         return res.status(404).json({ message: "Profile not found" });
       }
 
-      // Fire-and-forget logging
+      // Log view
       pool.query(
         `INSERT INTO emergency_logs (qr_tag_id, action_type, caller_ip)
          VALUES ($1, 'view', $2)`,
@@ -159,6 +156,7 @@ export default function qrRoutes(pool) {
         type: qr.type,
         data: profile
       });
+
     } catch (err) {
       console.error("PUBLIC RESOLVER ERROR:", err);
       return res.status(500).json({ message: "Server error" });
@@ -166,8 +164,7 @@ export default function qrRoutes(pool) {
   });
 
   /* =========================
-     ADMIN FETCH (MUST STAY LAST)
-     GET /api/qr/:code
+     ADMIN FETCH
   ========================= */
   router.get("/:code", async (req, res) => {
     const code = normalize(req.params.code);
@@ -187,6 +184,7 @@ export default function qrRoutes(pool) {
       }
 
       return res.json(result.rows[0]);
+
     } catch (err) {
       console.error("ADMIN FETCH ERROR:", err);
       return res.status(500).json({ message: "Server error" });
