@@ -1,22 +1,19 @@
-import { useEffect, useState, useRef } from "react";
-import JsBarcode from "jsbarcode";
+import { useEffect, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { jsPDF } from "jspdf";
 
 const API_BASE = import.meta.env.VITE_API_URL;
+const PUBLIC_URL = import.meta.env.VITE_PUBLIC_URL;
 
-if (!API_BASE) {
-  throw new Error("VITE_API_URL is not defined");
-}
+if (!API_BASE) throw new Error("VITE_API_URL is not defined");
+if (!PUBLIC_URL) throw new Error("VITE_PUBLIC_URL is not defined");
 
 const buildUrl = (path) => `${API_BASE}/api${path}`;
 
 export default function Inventory() {
   const [inventory, setInventory] = useState([]);
-  const [selectedQR, setSelectedQR] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  const canvasRef = useRef(null);
 
   /* =========================
      LOAD INVENTORY
@@ -37,7 +34,7 @@ export default function Inventory() {
 
       const data = await res.json();
       setInventory(Array.isArray(data?.data) ? data.data : []);
-    } catch (err) {
+    } catch {
       setError("Failed to load inventory");
     } finally {
       setLoading(false);
@@ -49,49 +46,47 @@ export default function Inventory() {
   }, []);
 
   /* =========================
-     BARCODE RENDERING
+     DOWNLOAD QR PDF
   ========================= */
-  useEffect(() => {
-    if (selectedQR && canvasRef.current) {
-      try {
-        JsBarcode(canvasRef.current, selectedQR, {
-          format: "CODE128",
-          width: 2,
-          height: 100,
-          displayValue: true
-        });
-      } catch {
-        setError("Failed to generate barcode");
-      }
-    }
-  }, [selectedQR]);
-
-  function handleView(qr) {
-    setSelectedQR(qr);
-  }
-
-  function downloadPDF(qr) {
+  function downloadQR(qr) {
     try {
       const doc = new jsPDF();
 
+      const qrUrl = `${PUBLIC_URL}/q/${qr}`;
+
       const canvas = document.createElement("canvas");
+      const qrSvg = document.querySelector(`#qr-${qr}`);
 
-      JsBarcode(canvas, qr, {
-        format: "CODE128",
-        width: 2,
-        height: 100,
-        displayValue: true
-      });
+      if (!qrSvg) {
+        alert("QR not found");
+        return;
+      }
 
-      const imgData = canvas.toDataURL("image/png");
+      const svgData = new XMLSerializer().serializeToString(qrSvg);
+      const img = new Image();
 
-      doc.setFontSize(14);
-      doc.text("QR Barcode", 20, 20);
-      doc.addImage(imgData, "PNG", 20, 30, 170, 50);
+      img.onload = function () {
+        canvas.width = img.width;
+        canvas.height = img.height;
 
-      doc.save(`${qr}-barcode.pdf`);
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0);
+
+        const imgData = canvas.toDataURL("image/png");
+
+        doc.setFontSize(12);
+        doc.text("QR Code", 20, 20);
+        doc.text(qrUrl, 20, 30);
+
+        doc.addImage(imgData, "PNG", 20, 40, 160, 160);
+
+        doc.save(`${qr}-qr.pdf`);
+      };
+
+      img.src = "data:image/svg+xml;base64," + btoa(svgData);
+
     } catch {
-      alert("Failed to download PDF");
+      alert("Failed to download QR");
     }
   }
 
@@ -111,6 +106,7 @@ export default function Inventory() {
             <th>QR Code</th>
             <th>Batch</th>
             <th>Status</th>
+            <th>QR Image</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -118,7 +114,7 @@ export default function Inventory() {
         <tbody>
           {inventory.length === 0 ? (
             <tr>
-              <td colSpan="4">No inventory found</td>
+              <td colSpan="5">No inventory found</td>
             </tr>
           ) : (
             inventory.map((item, index) => (
@@ -126,16 +122,19 @@ export default function Inventory() {
                 <td>{item.qr_code}</td>
                 <td>{item.batch_name || "-"}</td>
                 <td>{item.status}</td>
-                <td>
-                  <button onClick={() => handleView(item.qr_code)}>
-                    View Barcode
-                  </button>
 
-                  <button
-                    onClick={() => downloadPDF(item.qr_code)}
-                    style={{ marginLeft: 10 }}
-                  >
-                    Download PDF
+                {/* QR COLUMN */}
+                <td>
+                  <QRCodeSVG
+                    id={`qr-${item.qr_code}`}
+                    value={`${PUBLIC_URL}/q/${item.qr_code}`}
+                    size={80}
+                  />
+                </td>
+
+                <td>
+                  <button onClick={() => downloadQR(item.qr_code)}>
+                    Download QR PDF
                   </button>
                 </td>
               </tr>
@@ -143,13 +142,6 @@ export default function Inventory() {
           )}
         </tbody>
       </table>
-
-      {selectedQR && (
-        <div style={{ marginTop: 40 }}>
-          <h3>Barcode Preview</h3>
-          <canvas ref={canvasRef}></canvas>
-        </div>
-      )}
     </div>
   );
 }
