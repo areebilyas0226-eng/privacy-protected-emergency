@@ -14,12 +14,12 @@ import otpRoutes from "./routes/otp.routes.js";
 import maskedRoutes from "./routes/masked.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import profileRoutes from "./routes/profiles.routes.js";
+import publicRoutes from "./routes/public.routes.js";
 
 /* =========================
    ENV VALIDATION
 ========================= */
 
-// ❌ DO NOT require PORT (Railway provides it)
 const requiredEnv = [
   "DATABASE_URL",
   "ADMIN_EMAIL",
@@ -34,7 +34,6 @@ requiredEnv.forEach((key) => {
   }
 });
 
-// ✅ Railway-safe PORT handling
 const PORT = process.env.PORT || 8080;
 
 /* =========================
@@ -49,9 +48,11 @@ app.set("trust proxy", 1);
 ========================= */
 
 app.use(helmet());
+app.use(express.json({ limit: "10kb" }));
+app.use(cookieParser());
 
 /* =========================
-   CORS (Railway + Vercel Safe)
+   CORS (Clean + Safe)
 ========================= */
 
 const allowedOrigins = [
@@ -63,13 +64,13 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin) return callback(null, true); // allow curl/server calls
+      if (!origin) return callback(null, true);
 
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
-      return callback(new Error("Not allowed by CORS"));
+      return callback(null, false); // clean rejection
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -77,17 +78,12 @@ app.use(
   })
 );
 
-// Explicit preflight
-app.options(/.*/, cors());
-
-app.use(express.json({ limit: "10kb" }));
-app.use(cookieParser());
+app.options("*", cors());
 
 /* =========================
-   HEALTHCHECK (CRITICAL)
+   HEALTHCHECK
 ========================= */
 
-// Railway checks "/"
 app.get("/", (_, res) => {
   res.status(200).send("OK");
 });
@@ -121,19 +117,26 @@ const adminLoginLimiter = rateLimit({
   message: { message: "Too many login attempts. Try later." }
 });
 
-app.use("/api", publicLimiter);
-app.use("/api/admin/login", adminLoginLimiter);
-
 /* =========================
-   ROUTES
+   API ROUTES (FIRST)
 ========================= */
+
+app.use("/api", publicLimiter);
 
 app.use("/api/qr", qrRoutes(pool));
 app.use("/api/profile", profileRoutes(pool));
 app.use("/api/emergency", emergencyRoutes(pool));
 app.use("/api/otp", otpRoutes(pool));
 app.use("/api/masked", maskedRoutes(pool));
+
+app.use("/api/admin/login", adminLoginLimiter);
 app.use("/api/admin", adminRoutes(pool));
+
+/* =========================
+   PUBLIC ROUTES (LAST)
+========================= */
+
+app.use("/", publicRoutes(pool));
 
 /* =========================
    404
@@ -149,10 +152,6 @@ app.use((req, res) => {
 
 app.use((err, req, res, next) => {
   console.error("Server error:", err.message);
-
-  if (err.message === "Not allowed by CORS") {
-    return res.status(403).json({ message: "CORS blocked request" });
-  }
 
   if (err.type === "entity.parse.failed") {
     return res.status(400).json({ message: "Invalid JSON body" });
