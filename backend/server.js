@@ -52,7 +52,7 @@ app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
 
 /* =========================
-   CORS (Clean + Safe)
+   CORS (Correct + Safe)
 ========================= */
 
 const allowedOrigins = [
@@ -61,24 +61,23 @@ const allowedOrigins = [
   process.env.FRONTEND_URL
 ].filter(Boolean);
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(null, false);
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+};
 
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
+app.use(cors(corsOptions));
 
-      return callback(null, false); // clean rejection
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"]
-  })
-);
-
-app.options("/.*/", cors());
+// ✅ Correct preflight handling
+app.options(/.*/, cors(corsOptions));
 
 /* =========================
    HEALTHCHECK
@@ -118,7 +117,7 @@ const adminLoginLimiter = rateLimit({
 });
 
 /* =========================
-   API ROUTES (FIRST)
+   API ROUTES
 ========================= */
 
 app.use("/api", publicLimiter);
