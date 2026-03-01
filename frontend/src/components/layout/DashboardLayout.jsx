@@ -3,19 +3,44 @@ import Topbar from "./Topbar";
 
 export default function DashboardLayout({ children }) {
   return (
-    <div style={{
-      display: "flex",
-      minHeight: "100vh",
-      background: "#0f172a",
-      color: "white"
-    }}>
+    <div style={styles.wrapper}>
+      
+      {/* Sidebar */}
       <Sidebar />
-      <div style={{ flex: 1 }}>
+
+      {/* Main Area */}
+      <div style={styles.mainArea}>
+        
+        {/* Top Navigation */}
         <Topbar />
-        <div style={{ padding: "24px" }}>
+
+        {/* Page Content */}
+        <div style={styles.content}>
           {children}
         </div>
+
       </div>
     </div>
   );
 }
+
+const styles = {
+  wrapper: {
+    display: "flex",
+    minHeight: "100vh",
+    backgroundColor: "#0f172a",
+  },
+
+  mainArea: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    backgroundColor: "#111827",
+  },
+
+  content: {
+    flex: 1,
+    padding: "32px",
+    overflowY: "auto",
+  },
+};

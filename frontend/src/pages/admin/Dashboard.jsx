@@ -3,12 +3,18 @@ import DashboardLayout from "../../components/layout/DashboardLayout";
 import "./dashboard.css";
 
 const API_BASE = import.meta.env.VITE_API_URL;
+
+if (!API_BASE) {
+  throw new Error("VITE_API_URL is not defined");
+}
+
 const buildUrl = (path) => `${API_BASE}/api${path}`;
 
 export default function Dashboard() {
   const [orders, setOrders] = useState([]);
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   const [orderForm, setOrderForm] = useState({
     customer_name: "",
@@ -33,13 +39,17 @@ export default function Dashboard() {
         return;
       }
 
+      if (!ordersRes.ok || !inventoryRes.ok) {
+        throw new Error("Failed to fetch dashboard data");
+      }
+
       const ordersData = await ordersRes.json();
       const inventoryData = await inventoryRes.json();
 
-      setOrders(ordersData.data || []);
-      setInventory(inventoryData.data || []);
+      setOrders(Array.isArray(ordersData.data) ? ordersData.data : []);
+      setInventory(Array.isArray(inventoryData.data) ? inventoryData.data : []);
     } catch (err) {
-      console.error(err);
+      console.error("Dashboard load error:", err);
     } finally {
       setLoading(false);
     }
@@ -55,24 +65,44 @@ export default function Dashboard() {
   async function handleCreateOrder() {
     const { customer_name, mobile, quantity } = orderForm;
 
-    if (!customer_name || !mobile || !quantity) {
+    if (!customer_name.trim() || !mobile.trim() || !quantity) {
       alert("All fields required");
       return;
     }
 
-    await fetch(buildUrl("/admin/orders"), {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        customer_name,
-        mobile,
-        quantity: Number(quantity)
-      })
-    });
+    if (submitting) return;
 
-    setOrderForm({ customer_name: "", mobile: "", quantity: "" });
-    loadData();
+    try {
+      setSubmitting(true);
+
+      const res = await fetch(buildUrl("/admin/orders"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer_name: customer_name.trim(),
+          mobile: mobile.trim(),
+          quantity: Number(quantity)
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || "Order creation failed");
+      }
+
+      setOrderForm({
+        customer_name: "",
+        mobile: "",
+        quantity: ""
+      });
+
+      await loadData();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   /* =========================
@@ -156,8 +186,9 @@ export default function Dashboard() {
             <button
               className="primary-btn"
               onClick={handleCreateOrder}
+              disabled={submitting}
             >
-              Create Order
+              {submitting ? "Creating..." : "Create Order"}
             </button>
           </div>
 
@@ -202,7 +233,9 @@ export default function Dashboard() {
                     </td>
                     <td>{o.quantity_ordered}</td>
                     <td>{o.quantity_fulfilled}</td>
-                    <td>{o.status}</td>
+                    <td className={`status-${o.status}`}>
+                      {o.status}
+                    </td>
                   </tr>
                 ))
               )}
@@ -216,7 +249,7 @@ export default function Dashboard() {
 }
 
 /* =========================
-   STAT CARD COMPONENT
+   STAT CARD
 ========================= */
 function StatCard({ title, value }) {
   return (
