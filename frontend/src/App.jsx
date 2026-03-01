@@ -5,21 +5,15 @@ import QRResolver from "./pages/QRResolver";
 import ActivatePage from "./pages/ActivatePage";
 import EmergencyPage from "./pages/EmergencyPage";
 import ExpiredPage from "./pages/ExpiredPage";
+
 import AdminDashboard from "./pages/admin/Dashboard";
+import OrdersPage from "./pages/admin/Order";
+import InventoryPage from "./pages/admin/Batches";
+
 import AdminLogin from "./pages/AdminLogin";
 
-/* ===============================
-   ENV
-=============================== */
 const API_BASE = import.meta.env.VITE_API_URL;
 
-if (!API_BASE) {
-  console.error("VITE_API_URL is not defined");
-}
-
-/* ===============================
-   Protected Route
-=============================== */
 function ProtectedRoute({ children }) {
   const [loading, setLoading] = useState(true);
   const [isAuth, setIsAuth] = useState(false);
@@ -28,7 +22,7 @@ function ProtectedRoute({ children }) {
     async function checkAuth() {
       try {
         const res = await fetch(`${API_BASE}/api/admin/orders`, {
-          credentials: "include",
+          credentials: "include"
         });
 
         setIsAuth(res.ok);
@@ -39,11 +33,7 @@ function ProtectedRoute({ children }) {
       }
     }
 
-    if (API_BASE) {
-      checkAuth();
-    } else {
-      setLoading(false);
-    }
+    checkAuth();
   }, []);
 
   if (loading) return null;
@@ -51,23 +41,22 @@ function ProtectedRoute({ children }) {
   return isAuth ? children : <Navigate to="/admin-login" replace />;
 }
 
-/* ===============================
-   App
-=============================== */
 function App() {
   return (
     <BrowserRouter>
       <Routes>
 
+        {/* Redirect root */}
         <Route path="/" element={<Navigate to="/admin-login" replace />} />
 
+        {/* Public Routes */}
         <Route path="/qr/:code" element={<QRResolver />} />
         <Route path="/activate/:code" element={<ActivatePage />} />
         <Route path="/emergency/:code" element={<EmergencyPage />} />
         <Route path="/expired/:code" element={<ExpiredPage />} />
-
         <Route path="/admin-login" element={<AdminLogin />} />
 
+        {/* Protected Admin Routes */}
         <Route
           path="/admin"
           element={
@@ -77,6 +66,25 @@ function App() {
           }
         />
 
+        <Route
+          path="/admin/orders"
+          element={
+            <ProtectedRoute>
+              <OrdersPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/inventory"
+          element={
+            <ProtectedRoute>
+              <InventoryPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
 
       </Routes>
