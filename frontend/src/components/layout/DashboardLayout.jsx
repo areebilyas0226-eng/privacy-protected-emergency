@@ -4,21 +4,12 @@ import Topbar from "./Topbar";
 export default function DashboardLayout({ children }) {
   return (
     <div style={styles.wrapper}>
-      
-      {/* Sidebar */}
       <Sidebar />
-
-      {/* Main Area */}
-      <div style={styles.mainArea}>
-        
-        {/* Top Navigation */}
+      <div style={styles.main}>
         <Topbar />
-
-        {/* Page Content */}
         <div style={styles.content}>
           {children}
         </div>
-
       </div>
     </div>
   );
@@ -28,19 +19,16 @@ const styles = {
   wrapper: {
     display: "flex",
     minHeight: "100vh",
-    backgroundColor: "#0f172a",
+    background: "linear-gradient(135deg, #4f46e5, #06b6d4, #9333ea)",
+    backgroundSize: "400% 400%",
+    animation: "gradientMove 15s ease infinite",
+    fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif"
   },
-
-  mainArea: {
+  main: {
     flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    backgroundColor: "#111827",
+    padding: "30px"
   },
-
   content: {
-    flex: 1,
-    padding: "32px",
-    overflowY: "auto",
-  },
+    marginTop: "20px"
+  }
 };

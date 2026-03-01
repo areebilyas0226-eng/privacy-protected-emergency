@@ -1,44 +1,56 @@
-import { NavLink } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 export default function Sidebar() {
+  const location = useLocation();
+
   return (
     <div style={styles.sidebar}>
-      <h3 style={styles.title}>Admin</h3>
+      <h2 style={styles.logo}>Admin</h2>
 
-      <NavItem to="/admin" label="Dashboard" end />
-      <NavItem to="/admin/orders" label="Orders" />
-      <NavItem to="/admin/inventory" label="Inventory" />
+      <NavItem to="/admin" label="Dashboard" active={location.pathname === "/admin"} />
+      <NavItem to="/admin/orders" label="Orders" active={location.pathname === "/admin/orders"} />
+      <NavItem to="/admin/inventory" label="Inventory" active={location.pathname === "/admin/inventory"} />
     </div>
   );
 }
 
-function NavItem({ to, label, end }) {
+function NavItem({ to, label, active }) {
   return (
-    <NavLink
+    <Link
       to={to}
-      end={end}
-      style={({ isActive }) => ({
-        display: "block",
-        padding: "10px 0",
-        color: isActive ? "#60a5fa" : "#e5e7eb",
-        textDecoration: "none",
-        fontWeight: isActive ? 600 : 400
-      })}
+      style={{
+        ...styles.link,
+        ...(active ? styles.active : {})
+      }}
     >
       {label}
-    </NavLink>
+    </Link>
   );
 }
 
 const styles = {
   sidebar: {
-    width: 220,
-    padding: 20,
-    background: "#111827",
-    minHeight: "100vh",
+    width: 240,
+    padding: 25,
+    backdropFilter: "blur(25px)",
+    background: "rgba(255,255,255,0.1)",
+    borderRight: "1px solid rgba(255,255,255,0.2)",
     color: "white"
   },
-  title: {
+  logo: {
     marginBottom: 30
+  },
+  link: {
+    display: "block",
+    padding: "12px 16px",
+    marginBottom: 10,
+    borderRadius: 12,
+    color: "white",
+    textDecoration: "none",
+    transition: "0.3s"
+  },
+  active: {
+    background: "rgba(255,255,255,0.25)",
+    backdropFilter: "blur(10px)"
   }
 };
