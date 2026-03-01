@@ -31,16 +31,12 @@ export default function Dashboard() {
     quantity: ""
   });
 
-  /* =========================
-     SAFE API WRAPPER
-  ========================= */
+  /* ================= API WRAPPER ================= */
+
   async function apiFetch(path, options = {}) {
     const res = await fetch(buildUrl(path), {
       credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers
-      },
+      headers: { "Content-Type": "application/json" },
       ...options
     });
 
@@ -58,9 +54,8 @@ export default function Dashboard() {
     return data;
   }
 
-  /* =========================
-     LOAD DATA
-  ========================= */
+  /* ================= LOAD DATA ================= */
+
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
@@ -72,9 +67,9 @@ export default function Dashboard() {
         apiFetch("/admin/inventory")
       ]);
 
-      setOrders(Array.isArray(ordersRes?.data) ? ordersRes.data : []);
-      setBatches(Array.isArray(batchesRes?.data) ? batchesRes.data : []);
-      setInventory(Array.isArray(inventoryRes?.data) ? inventoryRes.data : []);
+      setOrders(ordersRes?.data ?? []);
+      setBatches(batchesRes?.data ?? []);
+      setInventory(inventoryRes?.data ?? []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -86,19 +81,18 @@ export default function Dashboard() {
     loadData();
   }, [loadData]);
 
-  /* =========================
-     ACTIONS
-  ========================= */
+  /* ================= ACTIONS ================= */
 
   async function handleCreateOrder() {
     const { customer_name, mobile, quantity } = orderForm;
+
     if (!customer_name || !mobile || !quantity) {
       alert("All fields required");
       return;
     }
 
     try {
-      const res = await apiFetch("/admin/orders", {
+      await apiFetch("/admin/orders", {
         method: "POST",
         body: JSON.stringify({
           customer_name,
@@ -108,12 +102,7 @@ export default function Dashboard() {
       });
 
       setOrderForm({ customer_name: "", mobile: "", quantity: "" });
-
-      if (res?.data) {
-        setOrders((prev) => [res.data, ...prev]);
-      } else {
-        loadData();
-      }
+      loadData();
     } catch (err) {
       alert(err.message);
     }
@@ -121,13 +110,14 @@ export default function Dashboard() {
 
   async function handleGenerateBatch() {
     const { batch_name, agent_name, quantity } = batchForm;
+
     if (!batch_name || !quantity) {
       alert("Batch name and quantity required");
       return;
     }
 
     try {
-      const res = await apiFetch("/admin/generate-batch", {
+      await apiFetch("/admin/generate-batch", {
         method: "POST",
         body: JSON.stringify({
           batch_name,
@@ -137,32 +127,27 @@ export default function Dashboard() {
       });
 
       setBatchForm({ batch_name: "", agent_name: "", quantity: "" });
-
-      if (res?.data) {
-        setBatches((prev) => [res.data, ...prev]);
-      } else {
-        loadData();
-      }
+      loadData();
     } catch (err) {
       alert(err.message);
     }
   }
 
-  if (loading) {
+  /* ================= UI STATES ================= */
+
+  if (loading)
     return (
       <DashboardLayout>
         <h2>Loading...</h2>
       </DashboardLayout>
     );
-  }
 
-  if (error) {
+  if (error)
     return (
       <DashboardLayout>
         <h2 style={{ color: "red" }}>{error}</h2>
       </DashboardLayout>
     );
-  }
 
   return (
     <DashboardLayout>
@@ -170,12 +155,12 @@ export default function Dashboard() {
 
       {/* TABS */}
       <div style={{ marginBottom: 30 }}>
-        <button onClick={() => setActiveTab("orders")}>Orders</button>
-        <button onClick={() => setActiveTab("batch")}>Batches</button>
-        <button onClick={() => setActiveTab("inventory")}>Inventory</button>
+        <button onClick={() => setActiveTab("orders")}>Tag Orders</button>
+        <button onClick={() => setActiveTab("batch")}>Generate QR Batch</button>
+        <button onClick={() => setActiveTab("inventory")}>QR Inventory</button>
       </div>
 
-      {/* ORDERS */}
+      {/* ================= ORDERS ================= */}
       {activeTab === "orders" && (
         <>
           <h2>Create Order</h2>
@@ -218,7 +203,9 @@ export default function Dashboard() {
             </thead>
             <tbody>
               {orders.length === 0 ? (
-                <tr><td colSpan="5">No orders found</td></tr>
+                <tr>
+                  <td colSpan="5">No orders found</td>
+                </tr>
               ) : (
                 orders.map((o, idx) => (
                   <tr key={o.id ?? idx}>
@@ -235,10 +222,10 @@ export default function Dashboard() {
         </>
       )}
 
-      {/* BATCHES */}
+      {/* ================= BATCHES ================= */}
       {activeTab === "batch" && (
         <>
-          <h2>Generate Batch</h2>
+          <h2>Generate QR Batch</h2>
 
           <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
             <input
@@ -276,7 +263,9 @@ export default function Dashboard() {
             </thead>
             <tbody>
               {batches.length === 0 ? (
-                <tr><td colSpan="3">No batches found</td></tr>
+                <tr>
+                  <td colSpan="3">No batches found</td>
+                </tr>
               ) : (
                 batches.map((b, idx) => (
                   <tr key={b.id ?? idx}>
@@ -291,10 +280,10 @@ export default function Dashboard() {
         </>
       )}
 
-      {/* INVENTORY */}
+      {/* ================= INVENTORY ================= */}
       {activeTab === "inventory" && (
         <>
-          <h2>Inventory</h2>
+          <h2>QR Inventory</h2>
 
           <table border="1" cellPadding="8" width="100%">
             <thead>
@@ -307,7 +296,9 @@ export default function Dashboard() {
             </thead>
             <tbody>
               {inventory.length === 0 ? (
-                <tr><td colSpan="4">No inventory found</td></tr>
+                <tr>
+                  <td colSpan="4">No inventory found</td>
+                </tr>
               ) : (
                 inventory.map((i, idx) => (
                   <tr key={i.qr_code ?? idx}>
@@ -316,7 +307,7 @@ export default function Dashboard() {
                     <td>{i.status}</td>
                     <td>
                       <a
-                        href={`/activate/${i.qr_code}`}
+                        href={`/q/${i.qr_code}`}
                         target="_blank"
                         rel="noreferrer"
                       >
