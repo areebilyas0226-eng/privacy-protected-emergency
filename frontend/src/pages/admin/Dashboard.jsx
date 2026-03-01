@@ -1,23 +1,14 @@
 import { useEffect, useState, useCallback } from "react";
 import DashboardLayout from "../../components/layout/DashboardLayout";
+import "./dashboard.css";
 
 const API_BASE = import.meta.env.VITE_API_URL;
-
-if (!API_BASE) {
-  throw new Error("VITE_API_URL is not defined");
-}
-
 const buildUrl = (path) => `${API_BASE}/api${path}`;
 
 export default function Dashboard() {
-  const [activeTab, setActiveTab] = useState("orders");
-
   const [orders, setOrders] = useState([]);
-  const [batches, setBatches] = useState([]);
   const [inventory, setInventory] = useState([]);
-
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
   const [orderForm, setOrderForm] = useState({
     customer_name: "",
@@ -25,53 +16,30 @@ export default function Dashboard() {
     quantity: ""
   });
 
-  const [batchForm, setBatchForm] = useState({
-    batch_name: "",
-    agent_name: "",
-    quantity: ""
-  });
-
-  /* ================= API WRAPPER ================= */
-
-  async function apiFetch(path, options = {}) {
-    const res = await fetch(buildUrl(path), {
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      ...options
-    });
-
-    if (res.status === 401) {
-      window.location.replace("/admin-login");
-      return;
-    }
-
-    const data = await res.json().catch(() => ({}));
-
-    if (!res.ok) {
-      throw new Error(data.message || `HTTP ${res.status}`);
-    }
-
-    return data;
-  }
-
-  /* ================= LOAD DATA ================= */
-
+  /* =========================
+     LOAD DATA
+  ========================= */
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      setError("");
 
-      const [ordersRes, batchesRes, inventoryRes] = await Promise.all([
-        apiFetch("/admin/orders"),
-        apiFetch("/admin/batches"),
-        apiFetch("/admin/inventory")
+      const [ordersRes, inventoryRes] = await Promise.all([
+        fetch(buildUrl("/admin/orders"), { credentials: "include" }),
+        fetch(buildUrl("/admin/inventory"), { credentials: "include" })
       ]);
 
-      setOrders(ordersRes?.data ?? []);
-      setBatches(batchesRes?.data ?? []);
-      setInventory(inventoryRes?.data ?? []);
+      if (ordersRes.status === 401) {
+        window.location.replace("/admin-login");
+        return;
+      }
+
+      const ordersData = await ordersRes.json();
+      const inventoryData = await inventoryRes.json();
+
+      setOrders(ordersData.data || []);
+      setInventory(inventoryData.data || []);
     } catch (err) {
-      setError(err.message);
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -81,8 +49,9 @@ export default function Dashboard() {
     loadData();
   }, [loadData]);
 
-  /* ================= ACTIONS ================= */
-
+  /* =========================
+     CREATE ORDER
+  ========================= */
   async function handleCreateOrder() {
     const { customer_name, mobile, quantity } = orderForm;
 
@@ -91,126 +60,146 @@ export default function Dashboard() {
       return;
     }
 
-    try {
-      await apiFetch("/admin/orders", {
-        method: "POST",
-        body: JSON.stringify({
-          customer_name,
-          mobile,
-          quantity: Number(quantity)
-        })
-      });
+    await fetch(buildUrl("/admin/orders"), {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        customer_name,
+        mobile,
+        quantity: Number(quantity)
+      })
+    });
 
-      setOrderForm({ customer_name: "", mobile: "", quantity: "" });
-      loadData();
-    } catch (err) {
-      alert(err.message);
-    }
+    setOrderForm({ customer_name: "", mobile: "", quantity: "" });
+    loadData();
   }
 
-  async function handleGenerateBatch() {
-    const { batch_name, agent_name, quantity } = batchForm;
+  /* =========================
+     STATS CALCULATION
+  ========================= */
+  const total = inventory.length;
+  const active = inventory.filter(i => i.status === "active").length;
+  const inactive = inventory.filter(i => i.status === "inactive").length;
+  const expired = inventory.filter(i => i.status === "expired").length;
 
-    if (!batch_name || !quantity) {
-      alert("Batch name and quantity required");
-      return;
-    }
-
-    try {
-      await apiFetch("/admin/generate-batch", {
-        method: "POST",
-        body: JSON.stringify({
-          batch_name,
-          agent_name,
-          quantity: Number(quantity)
-        })
-      });
-
-      setBatchForm({ batch_name: "", agent_name: "", quantity: "" });
-      loadData();
-    } catch (err) {
-      alert(err.message);
-    }
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="dashboard-container">
+          <h2>Loading...</h2>
+        </div>
+      </DashboardLayout>
+    );
   }
-
-  /* ================= UI STATES ================= */
-
-  if (loading)
-    return (
-      <DashboardLayout>
-        <h2>Loading...</h2>
-      </DashboardLayout>
-    );
-
-  if (error)
-    return (
-      <DashboardLayout>
-        <h2 style={{ color: "red" }}>{error}</h2>
-      </DashboardLayout>
-    );
 
   return (
     <DashboardLayout>
-      <h1 style={{ marginBottom: 30 }}>Admin Panel</h1>
+      <div className="dashboard-container">
 
-      {/* TABS */}
-      <div style={{ marginBottom: 30 }}>
-        <button onClick={() => setActiveTab("orders")}>Tag Orders</button>
-        <button onClick={() => setActiveTab("batch")}>Generate QR Batch</button>
-        <button onClick={() => setActiveTab("inventory")}>QR Inventory</button>
-      </div>
+        <h1 className="dashboard-title">
+          Operational Overview
+        </h1>
 
-      {/* ================= ORDERS ================= */}
-      {activeTab === "orders" && (
-        <>
-          <h2>Create Order</h2>
+        {/* STATS ROW */}
+        <div className="stats-row">
+          <StatCard title="Total QR Tags" value={total} />
+          <StatCard title="Active Tags" value={active} />
+          <StatCard title="Inactive Tags" value={inactive} />
+          <StatCard title="Expired Tags" value={expired} />
+        </div>
 
-          <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+        {/* MIDDLE SECTION */}
+        <div className="middle-section">
+
+          {/* ORDER FORM */}
+          <div className="order-box">
+            <h2>Tag Orders</h2>
+
             <input
+              className="form-input"
               placeholder="Customer Name"
               value={orderForm.customer_name}
               onChange={(e) =>
-                setOrderForm({ ...orderForm, customer_name: e.target.value })
+                setOrderForm({
+                  ...orderForm,
+                  customer_name: e.target.value
+                })
               }
             />
+
             <input
+              className="form-input"
               placeholder="Mobile"
               value={orderForm.mobile}
               onChange={(e) =>
-                setOrderForm({ ...orderForm, mobile: e.target.value })
+                setOrderForm({
+                  ...orderForm,
+                  mobile: e.target.value
+                })
               }
             />
+
             <input
+              className="form-input"
               type="number"
               placeholder="Quantity"
               value={orderForm.quantity}
               onChange={(e) =>
-                setOrderForm({ ...orderForm, quantity: e.target.value })
+                setOrderForm({
+                  ...orderForm,
+                  quantity: e.target.value
+                })
               }
             />
-            <button onClick={handleCreateOrder}>Place</button>
+
+            <button
+              className="primary-btn"
+              onClick={handleCreateOrder}
+            >
+              Create Order
+            </button>
           </div>
 
-          <table border="1" cellPadding="8" width="100%">
+          {/* GRAPH SECTION */}
+          <div className="graph-box">
+            <h2>QR Activation Graph</h2>
+            <div className="graph-placeholder">
+              Graph Coming Soon
+            </div>
+          </div>
+
+        </div>
+
+        {/* RECENT ORDERS TABLE */}
+        <div>
+          <h2>Recent Orders</h2>
+
+          <table className="orders-table">
             <thead>
               <tr>
                 <th>Name</th>
                 <th>Mobile</th>
+                <th>Date</th>
                 <th>Ordered</th>
                 <th>Fulfilled</th>
                 <th>Status</th>
               </tr>
             </thead>
+
             <tbody>
               {orders.length === 0 ? (
                 <tr>
-                  <td colSpan="5">No orders found</td>
+                  <td colSpan="6">No orders found</td>
                 </tr>
               ) : (
-                orders.map((o, idx) => (
-                  <tr key={o.id ?? idx}>
+                orders.map((o) => (
+                  <tr key={o.id}>
                     <td>{o.customer_name}</td>
                     <td>{o.mobile}</td>
+                    <td>
+                      {new Date(o.created_at).toLocaleDateString()}
+                    </td>
                     <td>{o.quantity_ordered}</td>
                     <td>{o.quantity_fulfilled}</td>
                     <td>{o.status}</td>
@@ -219,108 +208,21 @@ export default function Dashboard() {
               )}
             </tbody>
           </table>
-        </>
-      )}
+        </div>
 
-      {/* ================= BATCHES ================= */}
-      {activeTab === "batch" && (
-        <>
-          <h2>Generate QR Batch</h2>
-
-          <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
-            <input
-              placeholder="Batch Name"
-              value={batchForm.batch_name}
-              onChange={(e) =>
-                setBatchForm({ ...batchForm, batch_name: e.target.value })
-              }
-            />
-            <input
-              placeholder="Agent Name"
-              value={batchForm.agent_name}
-              onChange={(e) =>
-                setBatchForm({ ...batchForm, agent_name: e.target.value })
-              }
-            />
-            <input
-              type="number"
-              placeholder="Quantity"
-              value={batchForm.quantity}
-              onChange={(e) =>
-                setBatchForm({ ...batchForm, quantity: e.target.value })
-              }
-            />
-            <button onClick={handleGenerateBatch}>Generate</button>
-          </div>
-
-          <table border="1" cellPadding="8" width="100%">
-            <thead>
-              <tr>
-                <th>Batch</th>
-                <th>Agent</th>
-                <th>Quantity</th>
-              </tr>
-            </thead>
-            <tbody>
-              {batches.length === 0 ? (
-                <tr>
-                  <td colSpan="3">No batches found</td>
-                </tr>
-              ) : (
-                batches.map((b, idx) => (
-                  <tr key={b.id ?? idx}>
-                    <td>{b.batch_name}</td>
-                    <td>{b.agent_name || "-"}</td>
-                    <td>{b.quantity}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </>
-      )}
-
-      {/* ================= INVENTORY ================= */}
-      {activeTab === "inventory" && (
-        <>
-          <h2>QR Inventory</h2>
-
-          <table border="1" cellPadding="8" width="100%">
-            <thead>
-              <tr>
-                <th>QR Code</th>
-                <th>Batch</th>
-                <th>Status</th>
-                <th>View</th>
-              </tr>
-            </thead>
-            <tbody>
-              {inventory.length === 0 ? (
-                <tr>
-                  <td colSpan="4">No inventory found</td>
-                </tr>
-              ) : (
-                inventory.map((i, idx) => (
-                  <tr key={i.qr_code ?? idx}>
-                    <td>{i.qr_code}</td>
-                    <td>{i.batch_name || "-"}</td>
-                    <td>{i.status}</td>
-                    <td>
-                      <a
-                        href={`/q/${i.qr_code}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        View
-                      </a>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </>
-      )}
+      </div>
     </DashboardLayout>
+  );
+}
+
+/* =========================
+   STAT CARD COMPONENT
+========================= */
+function StatCard({ title, value }) {
+  return (
+    <div className="stat-card">
+      <h4>{title}</h4>
+      <h2>{value}</h2>
+    </div>
   );
 }
