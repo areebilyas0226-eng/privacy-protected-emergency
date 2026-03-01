@@ -1,32 +1,70 @@
 import DashboardLayout from "../../components/layout/DashboardLayout";
 
-export default function Order() {
+export default function Orders() {
   return (
     <DashboardLayout>
-      <GlassCard>
-        <h1>Orders</h1>
-        <p>Manage customer tag orders.</p>
-      </GlassCard>
+      <div style={styles.wrapper}>
+
+        <div style={styles.headerCard}>
+          <h1 style={styles.title}>Orders</h1>
+          <p style={styles.subtitle}>
+            Manage customer tag orders
+          </p>
+        </div>
+
+        <div style={styles.contentCard}>
+          <h2 style={styles.sectionTitle}>Order Management</h2>
+          <p style={styles.placeholder}>
+            Orders table and actions will appear here.
+          </p>
+        </div>
+
+      </div>
     </DashboardLayout>
   );
 }
 
-function GlassCard({ children }) {
-  return (
-    <div style={styles.card}>
-      {children}
-    </div>
-  );
-}
+const glass = {
+  background: "rgba(255,255,255,0.15)",
+  backdropFilter: "blur(20px)",
+  WebkitBackdropFilter: "blur(20px)",
+  border: "1px solid rgba(255,255,255,0.25)",
+  borderRadius: "20px",
+  boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+};
 
 const styles = {
-  card: {
-    padding: 30,
-    borderRadius: 20,
-    backdropFilter: "blur(25px)",
-    background: "rgba(255,255,255,0.15)",
-    border: "1px solid rgba(255,255,255,0.3)",
+  wrapper: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "30px",
+  },
+  headerCard: {
+    ...glass,
+    padding: "30px 40px",
+  },
+  title: {
+    fontSize: "32px",
+    fontWeight: "600",
+    margin: 0,
     color: "white",
-    boxShadow: "0 8px 32px rgba(0,0,0,0.2)"
-  }
+  },
+  subtitle: {
+    marginTop: "8px",
+    opacity: 0.8,
+    color: "white",
+  },
+  contentCard: {
+    ...glass,
+    padding: "40px",
+    minHeight: "400px",
+  },
+  sectionTitle: {
+    color: "white",
+    marginBottom: "20px",
+  },
+  placeholder: {
+    color: "white",
+    opacity: 0.7,
+  },
 };
