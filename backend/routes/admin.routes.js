@@ -65,7 +65,6 @@ export default function adminRoutes(pool) {
 
   /* =========================================
      CREATE ORDER
-     (Only creates request — NOT QR yet)
   ========================================= */
   router.post("/orders", async (req, res) => {
     const { customer_name, mobile, quantity } = req.body;
@@ -95,22 +94,15 @@ export default function adminRoutes(pool) {
   });
 
   /* =========================================
-     GENERATE QR BATCH
-     (This fulfills order and creates QRs)
+     GENERATE QR BATCH (AUTO 2× RULE)
   ========================================= */
   router.post("/generate-batch", async (req, res) => {
-    const { quantity } = req.body;
-    const qty = Number(quantity);
-
-    if (!Number.isInteger(qty) || qty < 1)
-      return res.status(400).json({ message: "Invalid quantity" });
-
     const client = await pool.connect();
 
     try {
       await client.query("BEGIN");
 
-      // Get oldest pending order
+      // Lock oldest pending order
       const orderResult = await client.query(
         `SELECT * FROM tag_orders
          WHERE status='pending'
@@ -121,35 +113,26 @@ export default function adminRoutes(pool) {
 
       if (orderResult.rows.length === 0) {
         await client.query("ROLLBACK");
-        return res.status(400).json({
-          message: "No pending orders"
-        });
+        return res.status(400).json({ message: "No pending orders" });
       }
 
       const order = orderResult.rows[0];
 
-      const remaining =
-        order.quantity_ordered - order.quantity_fulfilled;
-
-      if (qty > remaining) {
-        await client.query("ROLLBACK");
-        return res.status(400).json({
-          message: `Only ${remaining} QR allowed for this order`
-        });
-      }
+      // 🔥 NEW BUSINESS RULE
+      const qrToGenerate = order.quantity_ordered * 2;
 
       // Create batch
       const batchResult = await client.query(
         `INSERT INTO qr_batches (batch_name, quantity)
          VALUES ($1, $2)
          RETURNING *`,
-        [`Batch-${Date.now()}`, qty]
+        [`Batch-${Date.now()}`, qrToGenerate]
       );
 
       const batchId = batchResult.rows[0].id;
 
       // Generate unique QR codes
-      for (let i = 0; i < qty; i++) {
+      for (let i = 0; i < qrToGenerate; i++) {
         await client.query(
           `INSERT INTO qr_tags
            (qr_code, status, type, batch_id)
@@ -158,22 +141,20 @@ export default function adminRoutes(pool) {
         );
       }
 
-      // Update fulfillment
+      // Mark order completed
       await client.query(
         `UPDATE tag_orders
-         SET quantity_fulfilled = quantity_fulfilled + $1,
-             status = CASE
-               WHEN quantity_fulfilled + $1 >= quantity_ordered
-               THEN 'completed'
-               ELSE 'pending'
-             END
-         WHERE id=$2`,
-        [qty, order.id]
+         SET quantity_fulfilled = quantity_ordered,
+             status = 'completed'
+         WHERE id=$1`,
+        [order.id]
       );
 
       await client.query("COMMIT");
 
-      res.json({ message: "QR batch generated successfully" });
+      res.json({
+        message: `Generated ${qrToGenerate} QR codes successfully`
+      });
 
     } catch (err) {
       await client.query("ROLLBACK");
