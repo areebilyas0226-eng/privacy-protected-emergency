@@ -15,9 +15,9 @@ export default function adminRoutes(pool) {
     throw new Error("Missing required admin environment variables");
   }
 
-  /* ===============================
+  /* =========================================
      LOGIN
-  =============================== */
+  ========================================= */
   router.post("/login", async (req, res) => {
     try {
       const { email, password } = req.body;
@@ -48,7 +48,8 @@ export default function adminRoutes(pool) {
       res.cookie("admin_token", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        sameSite:
+          process.env.NODE_ENV === "production" ? "none" : "lax",
         maxAge: 60 * 60 * 1000
       });
 
@@ -62,9 +63,10 @@ export default function adminRoutes(pool) {
 
   router.use(adminAuth);
 
-  /* ===============================
+  /* =========================================
      CREATE ORDER
-  =============================== */
+     (Only creates request — NOT QR yet)
+  ========================================= */
   router.post("/orders", async (req, res) => {
     const { customer_name, mobile, quantity } = req.body;
     const qty = Number(quantity);
@@ -72,15 +74,15 @@ export default function adminRoutes(pool) {
     if (!customer_name || !mobile || !qty)
       return res.status(400).json({ message: "All fields required" });
 
-    if (!Number.isInteger(qty) || qty < 1 || qty > 100)
-      return res.status(400).json({ message: "Invalid quantity (1–100)" });
+    if (!Number.isInteger(qty) || qty < 1 || qty > 500)
+      return res.status(400).json({ message: "Invalid quantity (1–500)" });
 
     try {
       const result = await pool.query(
         `INSERT INTO tag_orders
-        (customer_name, mobile, quantity_ordered, quantity_fulfilled, status)
-        VALUES ($1,$2,$3,0,'pending')
-        RETURNING *`,
+         (customer_name, mobile, quantity_ordered, quantity_fulfilled, status)
+         VALUES ($1,$2,$3,0,'pending')
+         RETURNING *`,
         [customer_name.trim(), mobile.trim(), qty]
       );
 
@@ -92,9 +94,10 @@ export default function adminRoutes(pool) {
     }
   });
 
-  /* ===============================
+  /* =========================================
      GENERATE QR BATCH
-  =============================== */
+     (This fulfills order and creates QRs)
+  ========================================= */
   router.post("/generate-batch", async (req, res) => {
     const { quantity } = req.body;
     const qty = Number(quantity);
@@ -107,21 +110,24 @@ export default function adminRoutes(pool) {
     try {
       await client.query("BEGIN");
 
+      // Get oldest pending order
       const orderResult = await client.query(
         `SELECT * FROM tag_orders
          WHERE status='pending'
          ORDER BY created_at ASC
-         LIMIT 1`
+         LIMIT 1
+         FOR UPDATE`
       );
 
       if (orderResult.rows.length === 0) {
         await client.query("ROLLBACK");
         return res.status(400).json({
-          message: "No pending orders. Create order first."
+          message: "No pending orders"
         });
       }
 
       const order = orderResult.rows[0];
+
       const remaining =
         order.quantity_ordered - order.quantity_fulfilled;
 
@@ -132,7 +138,7 @@ export default function adminRoutes(pool) {
         });
       }
 
-      // Create batch record
+      // Create batch
       const batchResult = await client.query(
         `INSERT INTO qr_batches (batch_name, quantity)
          VALUES ($1, $2)
@@ -142,17 +148,17 @@ export default function adminRoutes(pool) {
 
       const batchId = batchResult.rows[0].id;
 
-      // Generate QR tags
+      // Generate unique QR codes
       for (let i = 0; i < qty; i++) {
         await client.query(
           `INSERT INTO qr_tags
-          (qr_code, status, type, batch_id)
-          VALUES ($1,'inactive','vehicle',$2)`,
+           (qr_code, status, type, batch_id)
+           VALUES ($1,'inactive','vehicle',$2)`,
           [uuidv4(), batchId]
         );
       }
 
-      // Update order fulfillment
+      // Update fulfillment
       await client.query(
         `UPDATE tag_orders
          SET quantity_fulfilled = quantity_fulfilled + $1,
@@ -178,13 +184,14 @@ export default function adminRoutes(pool) {
     }
   });
 
-  /* ===============================
+  /* =========================================
      LIST ORDERS
-  =============================== */
+  ========================================= */
   router.get("/orders", async (req, res) => {
     try {
       const result = await pool.query(
-        `SELECT * FROM tag_orders ORDER BY created_at DESC`
+        `SELECT * FROM tag_orders
+         ORDER BY created_at DESC`
       );
       res.json({ data: result.rows });
     } catch {
@@ -192,13 +199,14 @@ export default function adminRoutes(pool) {
     }
   });
 
-  /* ===============================
-     BATCHES
-  =============================== */
+  /* =========================================
+     LIST BATCHES
+  ========================================= */
   router.get("/batches", async (req, res) => {
     try {
       const result = await pool.query(
-        `SELECT * FROM qr_batches ORDER BY created_at DESC`
+        `SELECT * FROM qr_batches
+         ORDER BY created_at DESC`
       );
       res.json({ data: result.rows });
     } catch {
@@ -206,22 +214,22 @@ export default function adminRoutes(pool) {
     }
   });
 
-  /* ===============================
+  /* =========================================
      INVENTORY
-  =============================== */
+  ========================================= */
   router.get("/inventory", async (req, res) => {
     try {
       const result = await pool.query(`
         SELECT 
           q.qr_code,
           q.status,
-          b.batch_name,
-          q.created_at
+          q.created_at,
+          b.batch_name
         FROM qr_tags q
         LEFT JOIN qr_batches b
         ON q.batch_id = b.id
         ORDER BY q.created_at DESC
-        LIMIT 500
+        LIMIT 1000
       `);
 
       res.json({ data: result.rows });
