@@ -1,3 +1,12 @@
+import DashboardLayout from "../../components/layout/DashboardLayout";
+
 export default function Order() {
-  return <div>Order Page</div>;
+  return (
+    <DashboardLayout>
+      <div style={{ color: "white" }}>
+        <h1>Orders</h1>
+        <p>Orders management page coming soon.</p>
+      </div>
+    </DashboardLayout>
+  );
 }
