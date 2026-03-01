@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { QRCodeSVG } from "qrcode.react";
+import { QRCodeCanvas } from "qrcode.react";
 import { jsPDF } from "jspdf";
 
 const API_BASE = import.meta.env.VITE_API_URL;
@@ -46,59 +46,44 @@ export default function Inventory() {
   }, []);
 
   /* =========================
-     GENERATE QR PDF (DOM-INDEPENDENT)
+     DOWNLOAD QR PDF (Stable)
   ========================= */
   function downloadQR(qr) {
     try {
       const doc = new jsPDF();
       const qrUrl = `${PUBLIC_URL}/q/${qr}`;
 
-      // Create temporary canvas
+      // Create hidden canvas
       const canvas = document.createElement("canvas");
-      const size = 300;
-      canvas.width = size;
-      canvas.height = size;
 
-      const ctx = canvas.getContext("2d");
+      const qrInstance = new QRCodeCanvas({
+        value: qrUrl,
+        size: 300
+      });
 
-      // Render QR to temporary element
-      const tempDiv = document.createElement("div");
-      document.body.appendChild(tempDiv);
+      // Render QR into canvas
+      const temp = document.createElement("div");
+      document.body.appendChild(temp);
 
-      const qrElement = (
-        <QRCodeSVG value={qrUrl} size={size} />
-      );
-
-      // Render QR to DOM temporarily
-      import("react-dom").then(({ createRoot }) => {
-        const root = createRoot(tempDiv);
-        root.render(qrElement);
+      import("react-dom/client").then(({ createRoot }) => {
+        const root = createRoot(temp);
+        root.render(qrInstance);
 
         setTimeout(() => {
-          const svg = tempDiv.querySelector("svg");
-          if (!svg) return;
+          const generatedCanvas = temp.querySelector("canvas");
+          if (!generatedCanvas) return;
 
-          const svgData = new XMLSerializer().serializeToString(svg);
-          const img = new Image();
+          const imgData = generatedCanvas.toDataURL("image/png");
 
-          img.onload = function () {
-            ctx.drawImage(img, 0, 0);
-            const imgData = canvas.toDataURL("image/png");
+          doc.setFontSize(12);
+          doc.text("QR Code", 20, 20);
+          doc.text(qrUrl, 20, 30);
+          doc.addImage(imgData, "PNG", 20, 40, 160, 160);
 
-            doc.setFontSize(12);
-            doc.text("QR Code", 20, 20);
-            doc.text(qrUrl, 20, 30);
-            doc.addImage(imgData, "PNG", 20, 40, 160, 160);
+          doc.save(`${qr}-qr.pdf`);
 
-            doc.save(`${qr}-qr.pdf`);
-
-            root.unmount();
-            document.body.removeChild(tempDiv);
-          };
-
-          img.src =
-            "data:image/svg+xml;charset=utf-8," +
-            encodeURIComponent(svgData);
+          root.unmount();
+          document.body.removeChild(temp);
         }, 100);
       });
 
@@ -141,7 +126,7 @@ export default function Inventory() {
                 <td>{item.status}</td>
 
                 <td>
-                  <QRCodeSVG
+                  <QRCodeCanvas
                     value={`${PUBLIC_URL}/q/${item.qr_code}`}
                     size={80}
                   />
