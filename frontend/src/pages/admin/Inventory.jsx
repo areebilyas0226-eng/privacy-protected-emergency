@@ -46,44 +46,61 @@ export default function Inventory() {
   }, []);
 
   /* =========================
-     DOWNLOAD QR PDF
+     GENERATE QR PDF (DOM-INDEPENDENT)
   ========================= */
   function downloadQR(qr) {
     try {
       const doc = new jsPDF();
-
       const qrUrl = `${PUBLIC_URL}/q/${qr}`;
 
+      // Create temporary canvas
       const canvas = document.createElement("canvas");
-      const qrSvg = document.querySelector(`#qr-${qr}`);
+      const size = 300;
+      canvas.width = size;
+      canvas.height = size;
 
-      if (!qrSvg) {
-        alert("QR not found");
-        return;
-      }
+      const ctx = canvas.getContext("2d");
 
-      const svgData = new XMLSerializer().serializeToString(qrSvg);
-      const img = new Image();
+      // Render QR to temporary element
+      const tempDiv = document.createElement("div");
+      document.body.appendChild(tempDiv);
 
-      img.onload = function () {
-        canvas.width = img.width;
-        canvas.height = img.height;
+      const qrElement = (
+        <QRCodeSVG value={qrUrl} size={size} />
+      );
 
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0);
+      // Render QR to DOM temporarily
+      import("react-dom").then(({ createRoot }) => {
+        const root = createRoot(tempDiv);
+        root.render(qrElement);
 
-        const imgData = canvas.toDataURL("image/png");
+        setTimeout(() => {
+          const svg = tempDiv.querySelector("svg");
+          if (!svg) return;
 
-        doc.setFontSize(12);
-        doc.text("QR Code", 20, 20);
-        doc.text(qrUrl, 20, 30);
+          const svgData = new XMLSerializer().serializeToString(svg);
+          const img = new Image();
 
-        doc.addImage(imgData, "PNG", 20, 40, 160, 160);
+          img.onload = function () {
+            ctx.drawImage(img, 0, 0);
+            const imgData = canvas.toDataURL("image/png");
 
-        doc.save(`${qr}-qr.pdf`);
-      };
+            doc.setFontSize(12);
+            doc.text("QR Code", 20, 20);
+            doc.text(qrUrl, 20, 30);
+            doc.addImage(imgData, "PNG", 20, 40, 160, 160);
 
-      img.src = "data:image/svg+xml;base64," + btoa(svgData);
+            doc.save(`${qr}-qr.pdf`);
+
+            root.unmount();
+            document.body.removeChild(tempDiv);
+          };
+
+          img.src =
+            "data:image/svg+xml;charset=utf-8," +
+            encodeURIComponent(svgData);
+        }, 100);
+      });
 
     } catch {
       alert("Failed to download QR");
@@ -106,8 +123,8 @@ export default function Inventory() {
             <th>QR Code</th>
             <th>Batch</th>
             <th>Status</th>
-            <th>QR Image</th>
-            <th>Actions</th>
+            <th>View QR Code</th>
+            <th>Download</th>
           </tr>
         </thead>
 
@@ -123,10 +140,8 @@ export default function Inventory() {
                 <td>{item.batch_name || "-"}</td>
                 <td>{item.status}</td>
 
-                {/* QR COLUMN */}
                 <td>
                   <QRCodeSVG
-                    id={`qr-${item.qr_code}`}
                     value={`${PUBLIC_URL}/q/${item.qr_code}`}
                     size={80}
                   />
@@ -134,7 +149,7 @@ export default function Inventory() {
 
                 <td>
                   <button onClick={() => downloadQR(item.qr_code)}>
-                    Download QR PDF
+                    Download PDF
                   </button>
                 </td>
               </tr>
