@@ -17,35 +17,42 @@ export default function Orders() {
   }, []);
 
   async function fetchOrders() {
-    const res = await fetch(`${API_BASE}/api/admin/orders`, {
-      credentials: "include",
-    });
-    const data = await res.json();
-    setOrders(data);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/orders`, {
+        credentials: "include",
+      });
+      const data = await res.json();
+      setOrders(data.data || []);
+    } catch (err) {
+      console.error("Failed to fetch orders", err);
+    }
   }
 
   async function handleCreateOrder() {
-    await fetch(`${API_BASE}/api/admin/orders`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify(form),
-    });
+    try {
+      await fetch(`${API_BASE}/api/admin/orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(form),
+      });
 
-    setForm({ batch_name: "", agent_name: "", quantity: "" });
-    fetchOrders();
+      setForm({ batch_name: "", agent_name: "", quantity: "" });
+      fetchOrders();
+    } catch (err) {
+      console.error("Order creation failed", err);
+    }
   }
 
   return (
     <DashboardLayout>
       <div style={styles.wrapper}>
-
         <div style={styles.headerCard}>
           <h1 style={styles.title}>Orders</h1>
         </div>
 
-        <div style={styles.generateCard}>
-          <h2 style={styles.sectionTitle}>Generate QR Tags</h2>
+        <div style={styles.card}>
+          <h2 style={styles.sectionTitle}>Create Order</h2>
 
           <div style={styles.formGrid}>
             <input
@@ -80,7 +87,7 @@ export default function Orders() {
           </button>
         </div>
 
-        <div style={styles.tableCard}>
+        <div style={styles.card}>
           <h2 style={styles.sectionTitle}>Order History</h2>
 
           <table style={styles.table}>
@@ -103,15 +110,66 @@ export default function Orders() {
                   <td>{order.quantity_ordered}</td>
                   <td>{order.status}</td>
                   <td>
-                    {new Date(order.created_at).toLocaleDateString()}
+                    {order.created_at
+                      ? new Date(order.created_at).toLocaleDateString()
+                      : "-"}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-
       </div>
     </DashboardLayout>
   );
 }
+
+const styles = {
+  wrapper: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "30px",
+  },
+  headerCard: {
+    background: "rgba(255,255,255,0.15)",
+    padding: "20px",
+    borderRadius: "16px",
+  },
+  title: {
+    margin: 0,
+    color: "white",
+  },
+  card: {
+    background: "rgba(255,255,255,0.15)",
+    padding: "20px",
+    borderRadius: "16px",
+  },
+  sectionTitle: {
+    color: "white",
+    marginBottom: "15px",
+  },
+  formGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr 1fr",
+    gap: "15px",
+    marginBottom: "15px",
+  },
+  input: {
+    padding: "10px",
+    borderRadius: "8px",
+    border: "none",
+  },
+  primaryBtn: {
+    padding: "10px 20px",
+    borderRadius: "8px",
+    border: "none",
+    background: "#6366f1",
+    color: "white",
+    cursor: "pointer",
+  },
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+    color: "white",
+  },
+};

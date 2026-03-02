@@ -11,22 +11,25 @@ export default function Inventory() {
   }, []);
 
   async function fetchTags() {
-    const res = await fetch(`${API_BASE}/api/admin/inventory`, {
-      credentials: "include",
-    });
-    const data = await res.json();
-    setTags(data);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/inventory`, {
+        credentials: "include",
+      });
+      const data = await res.json();
+      setTags(data.data || []);
+    } catch (err) {
+      console.error("Failed to fetch inventory", err);
+    }
   }
 
   return (
     <DashboardLayout>
       <div style={styles.wrapper}>
-
         <div style={styles.headerCard}>
           <h1 style={styles.title}>QR Tag Inventory</h1>
         </div>
 
-        <div style={styles.tableCard}>
+        <div style={styles.card}>
           <table style={styles.table}>
             <thead>
               <tr>
@@ -38,7 +41,7 @@ export default function Inventory() {
             </thead>
             <tbody>
               {tags.map((tag) => (
-                <tr key={tag.id}>
+                <tr key={tag.qr_code}>
                   <td>{tag.qr_code}</td>
                   <td>{tag.batch_name}</td>
                   <td>{tag.status}</td>
@@ -52,8 +55,34 @@ export default function Inventory() {
             </tbody>
           </table>
         </div>
-
       </div>
     </DashboardLayout>
   );
 }
+
+const styles = {
+  wrapper: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "30px",
+  },
+  headerCard: {
+    background: "rgba(255,255,255,0.15)",
+    padding: "20px",
+    borderRadius: "16px",
+  },
+  title: {
+    margin: 0,
+    color: "white",
+  },
+  card: {
+    background: "rgba(255,255,255,0.15)",
+    padding: "20px",
+    borderRadius: "16px",
+  },
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+    color: "white",
+  },
+};
