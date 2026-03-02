@@ -1,10 +1,14 @@
 import Sidebar from "./Sidebar";
+import Topbar from "./Topbar";
 
 export default function DashboardLayout({ children }) {
   return (
     <div style={styles.wrapper}>
       <Sidebar />
+
       <div style={styles.main}>
+        <Topbar />
+
         <div style={styles.content}>
           {children}
         </div>
@@ -18,16 +22,14 @@ const styles = {
     display: "flex",
     minHeight: "100vh",
     background: "linear-gradient(135deg, #4f46e5, #06b6d4, #9333ea)",
-    backgroundSize: "400% 400%",
-    animation: "gradientMove 15s ease infinite",
     fontFamily:
-      "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
   },
   main: {
     flex: 1,
-    padding: "40px",
+    padding: "30px",
   },
   content: {
-    marginTop: "0px",
+    marginTop: "20px",
   },
 };

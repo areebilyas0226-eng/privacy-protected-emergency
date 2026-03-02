@@ -15,10 +15,16 @@ export default function Inventory() {
       const res = await fetch(`${API_BASE}/api/admin/inventory`, {
         credentials: "include",
       });
+
+      if (!res.ok) throw new Error("Failed");
+
       const data = await res.json();
-      setTags(data.data || []);
+
+      // backend returns array directly
+      setTags(data || []);
     } catch (err) {
       console.error("Failed to fetch inventory", err);
+      setTags([]);
     }
   }
 
@@ -41,7 +47,7 @@ export default function Inventory() {
             </thead>
             <tbody>
               {tags.map((tag) => (
-                <tr key={tag.qr_code}>
+                <tr key={tag.id}>
                   <td>{tag.qr_code}</td>
                   <td>{tag.batch_name}</td>
                   <td>{tag.status}</td>

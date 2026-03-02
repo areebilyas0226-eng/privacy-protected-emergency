@@ -21,10 +21,16 @@ export default function Orders() {
       const res = await fetch(`${API_BASE}/api/admin/orders`, {
         credentials: "include",
       });
+
+      if (!res.ok) throw new Error("Failed");
+
       const data = await res.json();
-      setOrders(data.data || []);
+
+      // backend returns array directly
+      setOrders(data || []);
     } catch (err) {
       console.error("Failed to fetch orders", err);
+      setOrders([]);
     }
   }
 
@@ -34,7 +40,10 @@ export default function Orders() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          quantity: Number(form.quantity),
+        }),
       });
 
       setForm({ batch_name: "", agent_name: "", quantity: "" });
