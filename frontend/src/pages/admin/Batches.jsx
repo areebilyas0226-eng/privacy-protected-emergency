@@ -17,44 +17,6 @@ export default function Inventory() {
           <h1 style={styles.title}>QR Tag Inventory</h1>
         </div>
 
-        {/* GENERATE SECTION */}
-        <div style={styles.generateCard}>
-          <h2 style={styles.sectionTitle}>Generate QR Tags</h2>
-
-          <div style={styles.formGrid}>
-            <input
-              placeholder="Batch Name"
-              style={styles.input}
-              value={form.batchName}
-              onChange={(e) =>
-                setForm({ ...form, batchName: e.target.value })
-              }
-            />
-            <input
-              placeholder="Agent Name"
-              style={styles.input}
-              value={form.agentName}
-              onChange={(e) =>
-                setForm({ ...form, agentName: e.target.value })
-              }
-            />
-            <input
-              placeholder="Quantity"
-              type="number"
-              style={styles.input}
-              value={form.quantity}
-              onChange={(e) =>
-                setForm({ ...form, quantity: e.target.value })
-              }
-            />
-          </div>
-
-          <div style={styles.buttonRow}>
-            <button style={styles.primaryBtn}>Generate</button>
-            <button style={styles.secondaryBtn}>Download PDF</button>
-          </div>
-        </div>
-
         {/* TABLE SECTION */}
         <div style={styles.tableCard}>
 
