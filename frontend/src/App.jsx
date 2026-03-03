@@ -8,12 +8,15 @@ import ExpiredPage from "./pages/ExpiredPage";
 
 import AdminDashboard from "./pages/admin/Dashboard";
 import OrdersPage from "./pages/admin/Order";
-import InventoryPage from "./pages/admin/Batches";
+import InventoryPage from "./pages/admin/Inventory";
 
 import AdminLogin from "./pages/AdminLogin";
 
 const API_BASE = import.meta.env.VITE_API_URL;
 
+/* =========================
+   Protected Route
+========================= */
 function ProtectedRoute({ children }) {
   const [loading, setLoading] = useState(true);
   const [isAuth, setIsAuth] = useState(false);
@@ -22,10 +25,16 @@ function ProtectedRoute({ children }) {
     async function checkAuth() {
       try {
         const res = await fetch(`${API_BASE}/api/admin/orders`, {
-          credentials: "include"
+          credentials: "include",
         });
 
-        setIsAuth(res.ok);
+        if (res.status === 401) {
+          setIsAuth(false);
+        } else if (res.ok) {
+          setIsAuth(true);
+        } else {
+          setIsAuth(false);
+        }
       } catch {
         setIsAuth(false);
       } finally {
@@ -36,17 +45,36 @@ function ProtectedRoute({ children }) {
     checkAuth();
   }, []);
 
-  if (loading) return null;
+  if (loading) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "linear-gradient(135deg, #4f46e5, #06b6d4, #9333ea)",
+          color: "white",
+          fontSize: "18px",
+        }}
+      >
+        Checking authentication...
+      </div>
+    );
+  }
 
   return isAuth ? children : <Navigate to="/admin-login" replace />;
 }
 
+/* =========================
+   App
+========================= */
 function App() {
   return (
     <BrowserRouter>
       <Routes>
 
-        {/* Redirect root */}
+        {/* Root Redirect */}
         <Route path="/" element={<Navigate to="/admin-login" replace />} />
 
         {/* Public Routes */}
