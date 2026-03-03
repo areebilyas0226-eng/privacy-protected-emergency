@@ -22,14 +22,12 @@ export default function Orders() {
         credentials: "include",
       });
 
-      if (!res.ok) throw new Error("Failed");
+      if (!res.ok) throw new Error("Fetch failed");
 
       const data = await res.json();
-
-      // backend returns array directly
-      setOrders(data || []);
+      setOrders(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error("Failed to fetch orders", err);
+      console.error(err);
       setOrders([]);
     }
   }
@@ -49,19 +47,15 @@ export default function Orders() {
       setForm({ batch_name: "", agent_name: "", quantity: "" });
       fetchOrders();
     } catch (err) {
-      console.error("Order creation failed", err);
+      console.error(err);
     }
   }
 
   return (
     <DashboardLayout>
       <div style={styles.wrapper}>
-        <div style={styles.headerCard}>
-          <h1 style={styles.title}>Orders</h1>
-        </div>
-
         <div style={styles.card}>
-          <h2 style={styles.sectionTitle}>Create Order</h2>
+          <h2 style={styles.heading}>Create Order</h2>
 
           <div style={styles.formGrid}>
             <input
@@ -91,13 +85,13 @@ export default function Orders() {
             />
           </div>
 
-          <button style={styles.primaryBtn} onClick={handleCreateOrder}>
+          <button style={styles.button} onClick={handleCreateOrder}>
             Create Order
           </button>
         </div>
 
         <div style={styles.card}>
-          <h2 style={styles.sectionTitle}>Order History</h2>
+          <h2 style={styles.heading}>Order History</h2>
 
           <table style={styles.table}>
             <thead>
@@ -110,21 +104,30 @@ export default function Orders() {
                 <th>Created</th>
               </tr>
             </thead>
+
             <tbody>
-              {orders.map((order, index) => (
-                <tr key={order.id}>
-                  <td>{index + 1}</td>
-                  <td>{order.batch_name}</td>
-                  <td>{order.agent_name}</td>
-                  <td>{order.quantity_ordered}</td>
-                  <td>{order.status}</td>
-                  <td>
-                    {order.created_at
-                      ? new Date(order.created_at).toLocaleDateString()
-                      : "-"}
+              {orders.length === 0 ? (
+                <tr>
+                  <td colSpan="6" style={styles.empty}>
+                    No orders found
                   </td>
                 </tr>
-              ))}
+              ) : (
+                orders.map((order, index) => (
+                  <tr key={order?.id || index}>
+                    <td>{index + 1}</td>
+                    <td>{order?.batch_name || "-"}</td>
+                    <td>{order?.agent_name || "-"}</td>
+                    <td>{order?.quantity_ordered || "-"}</td>
+                    <td>{order?.status || "-"}</td>
+                    <td>
+                      {order?.created_at
+                        ? new Date(order.created_at).toLocaleDateString()
+                        : "-"}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -139,23 +142,14 @@ const styles = {
     flexDirection: "column",
     gap: "30px",
   },
-  headerCard: {
-    background: "rgba(255,255,255,0.15)",
-    padding: "20px",
-    borderRadius: "16px",
-  },
-  title: {
-    margin: 0,
-    color: "white",
-  },
   card: {
-    background: "rgba(255,255,255,0.15)",
-    padding: "20px",
-    borderRadius: "16px",
+    background: "rgba(255,255,255,0.9)",
+    padding: "25px",
+    borderRadius: "14px",
   },
-  sectionTitle: {
-    color: "white",
+  heading: {
     marginBottom: "15px",
+    color: "#111",
   },
   formGrid: {
     display: "grid",
@@ -166,9 +160,9 @@ const styles = {
   input: {
     padding: "10px",
     borderRadius: "8px",
-    border: "none",
+    border: "1px solid #ccc",
   },
-  primaryBtn: {
+  button: {
     padding: "10px 20px",
     borderRadius: "8px",
     border: "none",
@@ -179,6 +173,10 @@ const styles = {
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    color: "white",
+  },
+  empty: {
+    textAlign: "center",
+    padding: "20px",
+    color: "#555",
   },
 };

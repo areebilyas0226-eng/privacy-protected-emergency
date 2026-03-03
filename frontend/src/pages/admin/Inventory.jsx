@@ -16,14 +16,12 @@ export default function Inventory() {
         credentials: "include",
       });
 
-      if (!res.ok) throw new Error("Failed");
+      if (!res.ok) throw new Error("Fetch failed");
 
       const data = await res.json();
-
-      // backend returns array directly
-      setTags(data || []);
+      setTags(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error("Failed to fetch inventory", err);
+      console.error(err);
       setTags([]);
     }
   }
@@ -31,11 +29,9 @@ export default function Inventory() {
   return (
     <DashboardLayout>
       <div style={styles.wrapper}>
-        <div style={styles.headerCard}>
-          <h1 style={styles.title}>QR Tag Inventory</h1>
-        </div>
-
         <div style={styles.card}>
+          <h2 style={styles.heading}>QR Tag Inventory</h2>
+
           <table style={styles.table}>
             <thead>
               <tr>
@@ -45,19 +41,28 @@ export default function Inventory() {
                 <th>Activated At</th>
               </tr>
             </thead>
+
             <tbody>
-              {tags.map((tag) => (
-                <tr key={tag.id}>
-                  <td>{tag.qr_code}</td>
-                  <td>{tag.batch_name}</td>
-                  <td>{tag.status}</td>
-                  <td>
-                    {tag.activated_at
-                      ? new Date(tag.activated_at).toLocaleDateString()
-                      : "-"}
+              {tags.length === 0 ? (
+                <tr>
+                  <td colSpan="4" style={styles.empty}>
+                    No inventory found
                   </td>
                 </tr>
-              ))}
+              ) : (
+                tags.map((tag, index) => (
+                  <tr key={tag?.id || index}>
+                    <td>{tag?.qr_code || "-"}</td>
+                    <td>{tag?.batch_name || "-"}</td>
+                    <td>{tag?.status || "-"}</td>
+                    <td>
+                      {tag?.activated_at
+                        ? new Date(tag.activated_at).toLocaleDateString()
+                        : "-"}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -72,23 +77,22 @@ const styles = {
     flexDirection: "column",
     gap: "30px",
   },
-  headerCard: {
-    background: "rgba(255,255,255,0.15)",
-    padding: "20px",
-    borderRadius: "16px",
-  },
-  title: {
-    margin: 0,
-    color: "white",
-  },
   card: {
-    background: "rgba(255,255,255,0.15)",
-    padding: "20px",
-    borderRadius: "16px",
+    background: "rgba(255,255,255,0.9)",
+    padding: "25px",
+    borderRadius: "14px",
+  },
+  heading: {
+    marginBottom: "15px",
+    color: "#111",
   },
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    color: "white",
+  },
+  empty: {
+    textAlign: "center",
+    padding: "20px",
+    color: "#555",
   },
 };
