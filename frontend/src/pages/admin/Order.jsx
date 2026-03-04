@@ -143,7 +143,7 @@ const styles = {
     gap: "30px",
   },
   card: {
-    background: "rgba(255,255,255,0.9)",
+    background: "rgba(255, 255, 255, 0.82)",
     padding: "25px",
     borderRadius: "14px",
   },
@@ -160,7 +160,7 @@ const styles = {
   input: {
     padding: "10px",
     borderRadius: "8px",
-    border: "1px solid #ccc",
+    border: "1px solid #b31c1c",
   },
   button: {
     padding: "10px 20px",
