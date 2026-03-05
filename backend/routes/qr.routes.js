@@ -115,7 +115,7 @@ export default function qrRoutes(pool) {
         `UPDATE qr_tags
          SET status = 'active',
              activated_at = NOW(),
-             expired_at = NOW() + INTERVAL '30 days'
+             expires_at = NOW() + INTERVAL '30 days'
          WHERE qr_code = $1
          RETURNING *`,
         [code]
@@ -152,7 +152,7 @@ export default function qrRoutes(pool) {
          FROM qr_tags
          WHERE qr_code = $1
            AND status = 'active'
-           AND expired_at > NOW()`,
+           AND expires_at > NOW()`,
         [code]
       );
 
@@ -191,7 +191,6 @@ export default function qrRoutes(pool) {
         return res.status(404).json({ message: "Profile not found" });
       }
 
-      /* log emergency view */
       pool.query(
         `INSERT INTO emergency_logs (qr_tag_id, action_type, caller_ip)
          VALUES ($1, 'view', $2)`,
