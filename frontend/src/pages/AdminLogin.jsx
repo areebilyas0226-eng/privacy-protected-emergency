@@ -7,69 +7,148 @@ if (!API_BASE) {
 }
 
 export default function AdminLogin() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
-  async function handleLogin(e) {
-    e.preventDefault();
+const [email,setEmail] = useState("");
+const [password,setPassword] = useState("");
+const [loading,setLoading] = useState(false);
+const [error,setError] = useState("");
 
-    if (!email || !password) {
-      setError("All fields required");
-      return;
-    }
+async function handleLogin(e){
 
-    try {
-      setLoading(true);
-      setError("");
+e.preventDefault();
 
-      const res = await fetch(`${API_BASE}/api/admin/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ email, password })
-      });
+if(!email || !password){
+setError("All fields required");
+return;
+}
 
-      const data = await res.json().catch(() => ({}));
+try{
 
-      if (!res.ok) {
-        throw new Error(data?.message || "Login failed");
-      }
+setLoading(true);
+setError("");
 
-      window.location.replace("/admin");
+const res = await fetch(`${API_BASE}/api/admin/login`,{
+method:"POST",
+headers:{ "Content-Type":"application/json" },
+credentials:"include",
+body:JSON.stringify({ email,password })
+});
 
-    } catch (err) {
-      setError(err.message || "Network error");
-    } finally {
-      setLoading(false);
-    }
-  }
+const data = await res.json().catch(()=>({}));
 
-  return (
-    <div style={{ padding: 40 }}>
-      <h2>Admin Login</h2>
+if(!res.ok){
+throw new Error(data?.message || "Login failed");
+}
 
-      {error && <p style={{ color: "red" }}>{error}</p>}
+window.location.replace("/admin");
 
-      <form onSubmit={handleLogin}>
-        <input
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <br /><br />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <br /><br />
-        <button type="submit" disabled={loading}>
-          {loading ? "Logging in..." : "Login"}
-        </button>
-      </form>
-    </div>
-  );
+}catch(err){
+
+setError(err.message || "Network error");
+
+}finally{
+
+setLoading(false);
+
+}
+
+}
+
+return(
+
+<div style={{
+minHeight:"100vh",
+display:"flex",
+alignItems:"center",
+justifyContent:"center",
+background:"linear-gradient(135deg,#4f46e5,#06b6d4,#9333ea)"
+}}>
+
+{/* Glass Container */}
+
+<div style={{
+width:"420px",
+padding:"40px",
+borderRadius:"18px",
+background:"rgba(255,255,255,0.15)",
+backdropFilter:"blur(20px)",
+boxShadow:"0 10px 40px rgba(0,0,0,0.25)",
+border:"1px solid rgba(255,255,255,0.25)",
+color:"#fff"
+}}>
+
+<h2 style={{
+textAlign:"center",
+marginBottom:"25px"
+}}>
+Admin Login
+</h2>
+
+{error && (
+<p style={{
+color:"#ffb4b4",
+marginBottom:"15px",
+textAlign:"center"
+}}>
+{error}
+</p>
+)}
+
+<form onSubmit={handleLogin}>
+
+<input
+type="email"
+placeholder="Admin Email"
+value={email}
+onChange={(e)=>setEmail(e.target.value)}
+style={{
+width:"100%",
+padding:"12px",
+borderRadius:"8px",
+border:"none",
+marginBottom:"15px",
+outline:"none"
+}}
+/>
+
+<input
+type="password"
+placeholder="Password"
+value={password}
+onChange={(e)=>setPassword(e.target.value)}
+style={{
+width:"100%",
+padding:"12px",
+borderRadius:"8px",
+border:"none",
+marginBottom:"20px",
+outline:"none"
+}}
+/>
+
+<button
+type="submit"
+disabled={loading}
+style={{
+width:"100%",
+padding:"12px",
+borderRadius:"8px",
+border:"none",
+background:"#ffffff",
+color:"#111",
+fontWeight:"600",
+cursor:"pointer"
+}}
+>
+{loading ? "Logging in..." : "Login"}
+</button>
+
+</form>
+
+</div>
+
+</div>
+
+);
+
 }
