@@ -55,7 +55,6 @@ export default function Orders() {
     <DashboardLayout>
       <div style={styles.wrapper}>
         
-        {/* CREATE ORDER */}
         <div style={styles.card}>
           <h2 style={styles.heading}>Create Order</h2>
 
@@ -94,19 +93,18 @@ export default function Orders() {
           </button>
         </div>
 
-        {/* ORDER HISTORY */}
         <div style={styles.card}>
           <h2 style={styles.heading}>Order History</h2>
 
           <table style={styles.table}>
             <thead>
               <tr>
-                <th>S.No</th>
-                <th>Batch</th>
-                <th>Agent</th>
-                <th>Qty</th>
-                <th>Status</th>
-                <th>Created</th>
+                <th style={styles.th}>S.No</th>
+                <th style={styles.th}>Batch</th>
+                <th style={styles.th}>Agent</th>
+                <th style={styles.th}>Qty</th>
+                <th style={styles.th}>Status</th>
+                <th style={styles.th}>Created</th>
               </tr>
             </thead>
 
@@ -120,12 +118,12 @@ export default function Orders() {
               ) : (
                 orders.map((order, index) => (
                   <tr key={order?.id || index}>
-                    <td>{index + 1}</td>
-                    <td>{order?.batch_name || "-"}</td>
-                    <td>{order?.agent_name || "-"}</td>
-                    <td>{order?.quantity_ordered || "-"}</td>
-                    <td>{order?.status || "-"}</td>
-                    <td>
+                    <td style={styles.td}>{index + 1}</td>
+                    <td style={styles.td}>{order?.batch_name || "-"}</td>
+                    <td style={styles.td}>{order?.agent_name || "-"}</td>
+                    <td style={styles.td}>{order?.quantity_ordered || "-"}</td>
+                    <td style={styles.td}>{order?.status || "-"}</td>
+                    <td style={styles.td}>
                       {order?.created_at
                         ? new Date(order.created_at).toLocaleDateString()
                         : "-"}
@@ -159,7 +157,7 @@ const styles = {
   },
 
   heading: {
-    marginBottom: "15px",
+    marginBottom: "20px",
     color: "#000",
   },
 
@@ -190,7 +188,20 @@ const styles = {
   table: {
     width: "100%",
     borderCollapse: "collapse",
+    marginTop: "10px",
     color: "#000",
+  },
+
+  th: {
+    textAlign: "left",
+    padding: "12px",
+    borderBottom: "2px solid rgba(0,0,0,0.2)",
+    fontWeight: "600",
+  },
+
+  td: {
+    padding: "12px",
+    borderBottom: "1px solid rgba(0,0,0,0.1)",
   },
 
   empty: {
