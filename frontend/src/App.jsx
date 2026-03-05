@@ -19,47 +19,55 @@ const API_BASE = import.meta.env.VITE_API_URL;
 /* =========================
 Protected Route
 ========================= */
+
 function ProtectedRoute({ children }) {
-  const [loading,setLoading]=useState(true);
-  const [isAuth,setIsAuth]=useState(false);
 
-  useEffect(()=>{
-    async function checkAuth(){
+const [loading,setLoading] = useState(true);
+const [isAuth,setIsAuth] = useState(false);
 
-      try{
-        const res = await fetch(`${API_BASE}/api/admin/orders`,{
-          credentials:"include"
-        });
+useEffect(()=>{
 
-        if(res.ok) setIsAuth(true);
-        else setIsAuth(false);
+async function checkAuth(){
 
-      }catch{
-        setIsAuth(false);
-      }
+try{
 
-      setLoading(false);
-    }
+const res = await fetch(`${API_BASE}/api/admin/orders`,{
+credentials:"include"
+});
 
-    checkAuth();
-  },[]);
+setIsAuth(res.ok);
 
-  if(loading){
-    return (
-      <div style={{
-        minHeight:"100vh",
-        display:"flex",
-        justifyContent:"center",
-        alignItems:"center",
-        background:"linear-gradient(135deg,#4f46e5,#06b6d4,#9333ea)",
-        color:"#fff"
-      }}>
-        Checking authentication...
-      </div>
-    );
-  }
+}catch{
 
-  return isAuth ? children : <Navigate to="/admin-login" replace/>;
+setIsAuth(false);
+
+}
+
+setLoading(false);
+
+}
+
+checkAuth();
+
+},[]);
+
+if(loading){
+
+return(
+<div style={{
+minHeight:"100vh",
+display:"flex",
+justifyContent:"center",
+alignItems:"center"
+}}>
+Checking authentication...
+</div>
+);
+
+}
+
+return isAuth ? children : <Navigate to="/admin-login" replace/>;
+
 }
 
 /* =========================
@@ -76,16 +84,22 @@ return(
 
 <Route path="/" element={<Navigate to="/admin-login" replace/>}/>
 
-{/* QR FLOW */}
+{/* ======================
+QR FLOW
+====================== */}
 
+<Route path="/:code" element={<QRResolver/>}/>
 <Route path="/qr/:code" element={<QRResolver/>}/>
+
 <Route path="/register/:code" element={<RegisterPage/>}/>
 <Route path="/activate/:code" element={<ActivatePage/>}/>
 <Route path="/emergency/:code" element={<EmergencyPage/>}/>
 <Route path="/expired/:code" element={<ExpiredPage/>}/>
 <Route path="/subscription/:code" element={<SubscriptionPage/>}/>
 
-{/* ADMIN */}
+{/* ======================
+ADMIN
+====================== */}
 
 <Route path="/admin-login" element={<AdminLogin/>}/>
 

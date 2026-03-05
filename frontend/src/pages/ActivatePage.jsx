@@ -3,108 +3,167 @@ import { useState, useEffect } from "react";
 
 const API_BASE = import.meta.env.VITE_API_URL;
 
-if (!API_BASE) {
-  throw new Error("VITE_API_URL is not defined");
+export default function ActivatePage() {
+
+const { code } = useParams();
+const navigate = useNavigate();
+
+const [checking,setChecking] = useState(true);
+const [error,setError] = useState("");
+const [qrValid,setQrValid] = useState(false);
+
+/* ===============================
+Validate QR
+=============================== */
+
+useEffect(()=>{
+
+if(!code) return;
+
+async function validateQR(){
+
+try{
+
+const res = await fetch(`${API_BASE}/api/qr/${code}`);
+
+if(!res.ok){
+throw new Error("Invalid QR Code");
 }
 
-export default function ActivatePage() {
-  const { code } = useParams();
-  const navigate = useNavigate();
+setQrValid(true);
 
-  const [loading, setLoading] = useState(false);
-  const [checking, setChecking] = useState(true);
-  const [error, setError] = useState("");
-  const [qrValid, setQrValid] = useState(false);
+}catch(err){
 
-  /* ===============================
-     Validate QR On Page Load
-  =============================== */
-  useEffect(() => {
-    if (!code) return;
+setError("QR not found or invalid");
 
-    async function validateQR() {
-      try {
-        const res = await fetch(`${API_BASE}/api/qr/${code}`);
+}finally{
 
-        if (!res.ok) {
-          throw new Error("QR not found");
-        }
+setChecking(false);
 
-        setQrValid(true);
-      } catch (err) {
-        setError("QR not found");
-      } finally {
-        setChecking(false);
-      }
-    }
+}
 
-    validateQR();
-  }, [code]);
+}
 
-  /* ===============================
-     Activate Handler
-  =============================== */
-  async function handleActivate() {
-    if (!code || !qrValid) return;
+validateQR();
 
-    try {
-      setLoading(true);
-      setError("");
+},[code]);
 
-      const res = await fetch(
-        `${API_BASE}/api/qr/${code}/activate`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" }
-        }
-      );
+/* ===============================
+Activate Button
+=============================== */
 
-      let data = {};
-      try {
-        data = await res.json();
-      } catch (_) {}
+function handleActivate(){
 
-      if (!res.ok) {
-        throw new Error(data?.message || "Activation failed");
-      }
+if(!qrValid) return;
 
-      navigate(`/emergency/${code}`);
-    } catch (err) {
-      setError(err.message || "Activation failed");
-    } finally {
-      setLoading(false);
-    }
-  }
+navigate(`/register/${code}`);
 
-  /* ===============================
-     UI STATES
-  =============================== */
-  if (checking) {
-    return <div style={{ padding: 40 }}>Checking QR...</div>;
-  }
+}
 
-  if (error && !qrValid) {
-    return (
-      <div style={{ padding: 40 }}>
-        <h2 style={{ color: "red" }}>{error}</h2>
-      </div>
-    );
-  }
+/* ===============================
+Loading State
+=============================== */
 
-  return (
-    <div style={{ padding: 40 }}>
-      <h1>Activate QR Code</h1>
-      <p>QR: {code}</p>
+if(checking){
 
-      {error && <p style={{ color: "red" }}>{error}</p>}
+return(
+<div style={{
+minHeight:"100vh",
+display:"flex",
+alignItems:"center",
+justifyContent:"center",
+fontSize:"18px"
+}}>
+Checking QR...
+</div>
+);
 
-      <button
-        onClick={handleActivate}
-        disabled={loading}
-        style={{ marginTop: 20 }}
-      >
-        {loading ? "Activating..." : "Activate"}
-      </button>
-    </div>
-  );
+}
+
+/* ===============================
+Invalid QR
+=============================== */
+
+if(error){
+
+return(
+<div style={{
+minHeight:"100vh",
+display:"flex",
+alignItems:"center",
+justifyContent:"center",
+flexDirection:"column"
+}}>
+<h2 style={{color:"red"}}>{error}</h2>
+</div>
+);
+
+}
+
+/* ===============================
+Main UI
+=============================== */
+
+return(
+
+<div style={{
+minHeight:"100vh",
+display:"flex",
+alignItems:"center",
+justifyContent:"center",
+background:"#f4f4f4"
+}}>
+
+<div style={{
+width:"420px",
+background:"#fff",
+padding:"30px",
+borderRadius:"10px",
+boxShadow:"0 0 10px rgba(0,0,0,0.1)",
+textAlign:"center"
+}}>
+
+<h2>Activate Emergency Tag</h2>
+
+<p style={{marginTop:"15px",lineHeight:"1.6"}}>
+
+You are about to activate your vehicle emergency tag.
+After activation, your emergency details will be accessible
+to first responders when this QR code is scanned.
+
+</p>
+
+<p style={{marginTop:"10px",fontSize:"14px",color:"#555"}}>
+
+You will be asked to enter your vehicle number and phone number
+on the next step.
+
+</p>
+
+<button
+onClick={handleActivate}
+style={{
+marginTop:"25px",
+padding:"12px 24px",
+border:"none",
+borderRadius:"6px",
+background:"#2563eb",
+color:"#fff",
+fontSize:"16px",
+cursor:"pointer"
+}}
+>
+Activate Tag
+</button>
+
+<p style={{marginTop:"20px",fontSize:"14px"}}>
+Need help? WhatsApp Support
+</p>
+
+</div>
+
+</div>
+
+);
+
 }
