@@ -3,10 +3,9 @@ import DashboardLayout from "../../components/layout/DashboardLayout";
 import "./dashboard.css";
 
 const API_BASE = import.meta.env.VITE_API_URL;
-
 const buildUrl = (path) => `${API_BASE}/api${path}`;
 
-export default function Dashboard() {
+export default function Dashboard(){
 
 const [orders,setOrders] = useState([]);
 const [inventory,setInventory] = useState([]);
@@ -19,9 +18,7 @@ mobile:"",
 quantity:""
 });
 
-/* =====================
-LOAD DATA
-===================== */
+/* ================= LOAD DATA ================= */
 
 const loadData = useCallback(async()=>{
 
@@ -61,9 +58,7 @@ useEffect(()=>{
 loadData();
 },[loadData]);
 
-/* =====================
-CREATE ORDER
-===================== */
+/* ================= CREATE ORDER ================= */
 
 async function handleCreateOrder(){
 
@@ -115,9 +110,7 @@ setSubmitting(false);
 
 }
 
-/* =====================
-STATS
-===================== */
+/* ================= STATS ================= */
 
 const total = inventory.length;
 const active = inventory.filter(i=>i.status==="active").length;
@@ -150,52 +143,6 @@ return(
 <StatCard title="Active Tags" value={active}/>
 <StatCard title="Inactive Tags" value={inactive}/>
 <StatCard title="Expired Tags" value={expired}/>
-
-</div>
-
-{/* RECENT ORDERS */}
-
-<div className="orders-section">
-
-<h2>Recent Orders</h2>
-
-<table className="orders-table">
-
-<thead>
-<tr>
-<th>Name</th>
-<th>Mobile</th>
-<th>Date</th>
-<th>Ordered</th>
-<th>Fulfilled</th>
-<th>Status</th>
-</tr>
-</thead>
-
-<tbody>
-
-{orders.length===0 && (
-<tr>
-<td colSpan="6">No Orders Found</td>
-</tr>
-)}
-
-{orders.map(o=>(
-<tr key={o.id}>
-<td>{o.customer_name}</td>
-<td>{o.mobile}</td>
-<td>{new Date(o.created_at).toLocaleDateString()}</td>
-<td>{o.quantity_ordered}</td>
-<td>{o.quantity_fulfilled}</td>
-<td className={`status-${o.status}`}>
-{o.status}
-</td>
-</tr>
-))}
-
-</tbody>
-
-</table>
 
 </div>
 
@@ -241,13 +188,61 @@ disabled={submitting}
 
 <div className="analytics-card">
 
-<h2>Activation Analytics</h2>
+<h2>QR Activation Graph</h2>
 
 <div className="graph-placeholder">
 Analytics Graph Coming Soon
 </div>
 
 </div>
+
+</div>
+
+{/* RECENT ORDERS */}
+
+<div className="orders-section">
+
+<h2>Recent Orders</h2>
+
+<table className="orders-table">
+
+<thead>
+<tr>
+<th>S.No</th>
+<th>Name</th>
+<th>Mobile</th>
+<th>Date</th>
+<th>Ordered</th>
+<th>Fulfilled</th>
+<th>Status</th>
+</tr>
+</thead>
+
+<tbody>
+
+{orders.length===0 && (
+<tr>
+<td colSpan="7">No Orders Found</td>
+</tr>
+)}
+
+{orders.map((o,index)=>(
+<tr key={o.id}>
+<td>{index+1}</td>
+<td>{o.customer_name}</td>
+<td>{o.mobile}</td>
+<td>{new Date(o.created_at).toLocaleDateString()}</td>
+<td>{o.quantity_ordered}</td>
+<td>{o.quantity_fulfilled}</td>
+<td className={`status-${o.status}`}>
+{o.status}
+</td>
+</tr>
+))}
+
+</tbody>
+
+</table>
 
 </div>
 
@@ -259,9 +254,7 @@ Analytics Graph Coming Soon
 
 }
 
-/* =====================
-STAT CARD
-===================== */
+/* ================= STAT CARD ================= */
 
 function StatCard({title,value}){
 
