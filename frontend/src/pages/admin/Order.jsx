@@ -54,6 +54,8 @@ export default function Orders() {
   return (
     <DashboardLayout>
       <div style={styles.wrapper}>
+        
+        {/* CREATE ORDER */}
         <div style={styles.card}>
           <h2 style={styles.heading}>Create Order</h2>
 
@@ -66,6 +68,7 @@ export default function Orders() {
                 setForm({ ...form, batch_name: e.target.value })
               }
             />
+
             <input
               placeholder="Agent Name"
               style={styles.input}
@@ -74,6 +77,7 @@ export default function Orders() {
                 setForm({ ...form, agent_name: e.target.value })
               }
             />
+
             <input
               type="number"
               placeholder="Quantity"
@@ -90,6 +94,7 @@ export default function Orders() {
           </button>
         </div>
 
+        {/* ORDER HISTORY */}
         <div style={styles.card}>
           <h2 style={styles.heading}>Order History</h2>
 
@@ -130,7 +135,9 @@ export default function Orders() {
               )}
             </tbody>
           </table>
+
         </div>
+
       </div>
     </DashboardLayout>
   );
@@ -142,41 +149,53 @@ const styles = {
     flexDirection: "column",
     gap: "30px",
   },
+
   card: {
-    background: "rgba(255, 255, 255, 0.82)",
+    background: "transparent",
     padding: "25px",
     borderRadius: "14px",
+    backdropFilter: "blur(10px)",
+    border: "1px solid rgba(255,255,255,0.2)",
   },
+
   heading: {
     marginBottom: "15px",
-    color: "#111",
+    color: "#000",
   },
+
   formGrid: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr 1fr",
     gap: "15px",
     marginBottom: "15px",
   },
+
   input: {
     padding: "10px",
     borderRadius: "8px",
-    border: "1px solid #b31c1c",
+    border: "1px solid #ccc",
+    background: "rgba(255,255,255,0.6)",
+    color: "#000",
   },
+
   button: {
     padding: "10px 20px",
     borderRadius: "8px",
     border: "none",
     background: "#6366f1",
-    color: "white",
+    color: "#fff",
     cursor: "pointer",
   },
+
   table: {
     width: "100%",
     borderCollapse: "collapse",
+    color: "#000",
   },
+
   empty: {
     textAlign: "center",
     padding: "20px",
-    color: "#555",
+    color: "#000",
   },
 };
