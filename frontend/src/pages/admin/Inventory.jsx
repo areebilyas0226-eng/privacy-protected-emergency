@@ -35,10 +35,10 @@ export default function Inventory() {
           <table style={styles.table}>
             <thead>
               <tr>
-                <th>QR Code</th>
-                <th>Batch</th>
-                <th>Status</th>
-                <th>Activated At</th>
+                <th style={styles.th}>QR Code</th>
+                <th style={styles.th}>Batch</th>
+                <th style={styles.th}>Status</th>
+                <th style={styles.th}>Activated At</th>
               </tr>
             </thead>
 
@@ -52,10 +52,10 @@ export default function Inventory() {
               ) : (
                 tags.map((tag, index) => (
                   <tr key={tag?.id || index}>
-                    <td>{tag?.qr_code || "-"}</td>
-                    <td>{tag?.batch_name || "-"}</td>
-                    <td>{tag?.status || "-"}</td>
-                    <td>
+                    <td style={styles.qr}>{tag?.qr_code || "-"}</td>
+                    <td style={styles.td}>{tag?.batch_name || "-"}</td>
+                    <td style={styles.td}>{tag?.status || "-"}</td>
+                    <td style={styles.td}>
                       {tag?.activated_at
                         ? new Date(tag.activated_at).toLocaleDateString()
                         : "-"}
@@ -65,6 +65,7 @@ export default function Inventory() {
               )}
             </tbody>
           </table>
+
         </div>
       </div>
     </DashboardLayout>
@@ -77,22 +78,49 @@ const styles = {
     flexDirection: "column",
     gap: "30px",
   },
+
   card: {
-    background: "rgba(255,255,255,0.9)",
+    background: "transparent",
     padding: "25px",
     borderRadius: "14px",
+    backdropFilter: "blur(10px)",
+    border: "1px solid rgba(255,255,255,0.2)",
   },
+
   heading: {
-    marginBottom: "15px",
-    color: "#111",
+    marginBottom: "20px",
+    color: "#000",
   },
+
   table: {
     width: "100%",
     borderCollapse: "collapse",
+    marginTop: "10px",
+    color: "#000",
   },
+
+  th: {
+    textAlign: "left",
+    padding: "12px",
+    borderBottom: "2px solid rgba(0,0,0,0.2)",
+    fontWeight: "600",
+  },
+
+  td: {
+    padding: "12px",
+    borderBottom: "1px solid rgba(0,0,0,0.1)",
+  },
+
+  qr: {
+    padding: "12px",
+    borderBottom: "1px solid rgba(0,0,0,0.1)",
+    fontFamily: "monospace",
+    wordBreak: "break-all",
+  },
+
   empty: {
     textAlign: "center",
     padding: "20px",
-    color: "#555",
+    color: "#000",
   },
 };
