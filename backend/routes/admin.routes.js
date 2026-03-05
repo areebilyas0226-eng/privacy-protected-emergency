@@ -82,20 +82,45 @@ if (!customer_name || !mobile || !quantity) {
 return res.status(400).json({ message: "Missing fields" });
 }
 
-const id = uuidv4();
+const orderId = uuidv4();
+
+/* create order */
 
 await pool.query(
 `INSERT INTO tag_orders
 (id, customer_name, mobile, quantity_ordered, quantity_fulfilled, status)
 VALUES ($1,$2,$3,$4,0,'pending')`,
-[id, customer_name, mobile, quantity]
+[orderId, customer_name, mobile, quantity]
 );
 
-res.json({ message: "order_created" });
+/* =================
+DOUBLE QR GENERATION
+================= */
+
+const totalQR = Number(quantity) * 2;
+
+for (let i = 0; i < totalQR; i++) {
+
+const qrCode = uuidv4();
+
+await pool.query(
+`INSERT INTO qr_tags
+(id, qr_code, status)
+VALUES ($1,$2,'inactive')`,
+[uuidv4(), qrCode]
+);
+
+}
+
+res.json({
+message: "order_created",
+order_id: orderId,
+generated_qr: totalQR
+});
 
 } catch (err) {
 
-console.error(err);
+console.error("Order creation error:", err);
 res.status(500).json({ message: "Order creation failed" });
 
 }
@@ -103,10 +128,12 @@ res.status(500).json({ message: "Order creation failed" });
 });
 
 /* =================
-ORDERS
+ORDERS LIST
 ================= */
 
 router.get("/orders", async (req, res) => {
+
+try {
 
 const result = await pool.query(`
 SELECT *
@@ -116,6 +143,13 @@ ORDER BY created_at DESC
 
 res.json(result.rows);
 
+} catch (err) {
+
+console.error(err);
+res.status(500).json({ message: "Failed to fetch orders" });
+
+}
+
 });
 
 /* =================
@@ -123,6 +157,8 @@ INVENTORY
 ================= */
 
 router.get("/inventory", async (req, res) => {
+
+try {
 
 const result = await pool.query(`
 SELECT
@@ -141,6 +177,13 @@ LIMIT 1000
 
 res.json(result.rows);
 
+} catch (err) {
+
+console.error(err);
+res.status(500).json({ message: "Failed to fetch inventory" });
+
+}
+
 });
 
 /* =================
@@ -148,6 +191,8 @@ EXTEND SUBSCRIPTION
 ================= */
 
 router.post("/extend/:id", async (req, res) => {
+
+try {
 
 const { months } = req.body;
 const id = req.params.id;
@@ -164,6 +209,13 @@ WHERE id = $2`,
 );
 
 res.json({ message: "subscription_extended" });
+
+} catch (err) {
+
+console.error(err);
+res.status(500).json({ message: "Extension failed" });
+
+}
 
 });
 
