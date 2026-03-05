@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import adminAuth from "../middleware/adminAuth.js";
 
-export default function adminRoutes(pool) {
+export default function adminRoutes(pool){
 
 const router = express.Router();
 
@@ -13,6 +13,8 @@ ADMIN LOGIN
 ================= */
 
 router.post("/login", async (req,res)=>{
+
+try{
 
 const {email,password} = req.body;
 
@@ -47,6 +49,13 @@ sameSite:"none"
 
 res.json({message:"login_success"});
 
+}catch(err){
+
+console.error(err);
+res.status(500).json({message:"Login failed"});
+
+}
+
 });
 
 /* =================
@@ -69,7 +78,7 @@ PROTECTED ROUTES
 router.use(adminAuth);
 
 /* =====================================================
-DASHBOARD ORDERS (OLD SYSTEM - DO NOT TOUCH)
+DASHBOARD ORDERS (Create Order on Dashboard)
 ===================================================== */
 
 router.post("/orders", async (req,res)=>{
@@ -103,7 +112,32 @@ res.status(500).json({message:"Order creation failed"});
 });
 
 /* =====================================================
-QR ORDERS (ORDERS PAGE SYSTEM)
+DASHBOARD ORDER HISTORY
+===================================================== */
+
+router.get("/orders", async (req,res)=>{
+
+try{
+
+const result = await pool.query(`
+SELECT *
+FROM tag_orders
+ORDER BY created_at DESC
+`);
+
+res.json(result.rows);
+
+}catch(err){
+
+console.error(err);
+res.status(500).json({message:"Failed to fetch orders"});
+
+}
+
+});
+
+/* =====================================================
+QR ORDERS (Orders Page System)
 ===================================================== */
 
 router.post("/qr-orders", async (req,res)=>{
@@ -127,22 +161,33 @@ VALUES ($1,$2,$3,$4,'pending')`,
 [orderId,batch_name,agent_name,quantity]
 );
 
-/* generate DOUBLE QR */
+/* =================
+DOUBLE QR GENERATION
+================= */
 
 const totalQR = Number(quantity) * 2;
 
+/* batch insert for performance */
+
+const values = [];
+const params = [];
+
 for(let i=0;i<totalQR;i++){
 
-const qrCode = uuidv4();
+const id = uuidv4();
+const code = uuidv4();
 
-await pool.query(
-`INSERT INTO qr_tags
-(id,qr_code,status)
-VALUES ($1,$2,'inactive')`,
-[uuidv4(),qrCode]
-);
+params.push(`($${i*2+1},$${i*2+2},'inactive')`);
+
+values.push(id,code);
 
 }
+
+await pool.query(
+`INSERT INTO qr_tags (id,qr_code,status)
+VALUES ${params.join(",")}`,
+values
+);
 
 res.json({
 message:"qr_order_created",
