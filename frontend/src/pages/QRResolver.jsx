@@ -1,77 +1,81 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams,useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 
 const API_BASE = import.meta.env.VITE_API_URL;
 
 export default function QRResolver(){
 
-  const { code } = useParams();
-  const navigate = useNavigate();
+const {code}=useParams();
+const navigate=useNavigate();
 
-  useEffect(()=>{
+useEffect(()=>{
 
-    async function resolveQR(){
+async function resolve(){
 
-      try{
+try{
 
-        const res = await fetch(`${API_BASE}/api/qr/${code}`);
+const res = await fetch(`${API_BASE}/api/qr/${code}`);
 
-        if(!res.ok){
-          navigate(`/expired/${code}`);
-          return;
-        }
+if(!res.ok){
+navigate(`/expired/${code}`);
+return;
+}
 
-        const data = await res.json();
+const data = await res.json();
 
-        /* profile not registered */
-        if(!data.profiles_id){
-          navigate(`/register/${code}`);
-          return;
-        }
+/* NOT REGISTERED */
 
-        /* inactive */
-        if(data.status === "inactive"){
-          navigate(`/activate/${code}`);
-          return;
-        }
+if(!data.profiles_id){
+navigate(`/register/${code}`);
+return;
+}
 
-        /* active */
-        if(data.status === "active"){
+/* INACTIVE */
 
-          const now = new Date();
-          const expiry = new Date(data.expires_at);
+if(data.status==="inactive"){
+navigate(`/activate/${code}`);
+return;
+}
 
-          if(expiry > now){
-            navigate(`/emergency/${code}`);
-          }else{
-            navigate(`/expired/${code}`);
-          }
+/* ACTIVE */
 
-          return;
-        }
+if(data.status==="active"){
 
-        navigate(`/expired/${code}`);
+const now = new Date();
+const expiry = new Date(data.expires_at);
 
-      }catch{
+if(expiry>now){
+navigate(`/emergency/${code}`);
+}else{
+navigate(`/subscription/${code}`);
+}
 
-        navigate(`/expired/${code}`);
+return;
+}
 
-      }
+navigate(`/expired/${code}`);
 
-    }
+}catch{
 
-    resolveQR();
+navigate(`/expired/${code}`);
 
-  },[code,navigate]);
+}
 
-  return (
-    <div style={{
-      minHeight:"100vh",
-      display:"flex",
-      justifyContent:"center",
-      alignItems:"center"
-    }}>
-      Resolving QR...
-    </div>
-  );
+}
+
+resolve();
+
+},[code,navigate]);
+
+return(
+<div style={{
+minHeight:"100vh",
+display:"flex",
+alignItems:"center",
+justifyContent:"center"
+}}>
+Resolving QR...
+</div>
+);
+
 }

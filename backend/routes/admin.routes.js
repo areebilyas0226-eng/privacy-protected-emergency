@@ -4,202 +4,107 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import adminAuth from "../middleware/adminAuth.js";
 
-export default function adminRoutes(pool) {
-  const router = express.Router();
+export default function adminRoutes(pool){
 
-  if (
-    !process.env.ADMIN_EMAIL ||
-    !process.env.ADMIN_PASSWORD_HASH ||
-    !process.env.JWT_SECRET
-  ) {
-    throw new Error("Missing required admin environment variables");
-  }
+const router = express.Router();
 
-  /* =========================
-     LOGIN
-  ========================= */
-  router.post("/login", async (req, res) => {
-    try {
-      const { email, password } = req.body;
+/* =================
+LOGIN
+================= */
 
-      if (!email || !password)
-        return res.status(400).json({ message: "Email and password required" });
+router.post("/login", async(req,res)=>{
 
-      if (
-        email.trim().toLowerCase() !==
-        process.env.ADMIN_EMAIL.trim().toLowerCase()
-      )
-        return res.status(401).json({ message: "Invalid credentials" });
+const {email,password} = req.body;
 
-      const isMatch = await bcrypt.compare(
-        password,
-        process.env.ADMIN_PASSWORD_HASH
-      );
+if(
+email !== process.env.ADMIN_EMAIL
+) return res.status(401).json({message:"Invalid"});
 
-      if (!isMatch)
-        return res.status(401).json({ message: "Invalid credentials" });
+const valid = await bcrypt.compare(
+password,
+process.env.ADMIN_PASSWORD_HASH
+);
 
-      const token = jwt.sign(
-        { role: "admin" },
-        process.env.JWT_SECRET,
-        { expiresIn: "1h" }
-      );
+if(!valid)
+return res.status(401).json({message:"Invalid"});
 
-      res.cookie("admin_token", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-        maxAge: 60 * 60 * 1000,
-      });
+const token = jwt.sign(
+{role:"admin"},
+process.env.JWT_SECRET,
+{expiresIn:"1h"}
+);
 
-      res.json({ message: "Login successful" });
+res.cookie("admin_token",token,{
+httpOnly:true,
+sameSite:"lax"
+});
 
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ message: "Login failed" });
-    }
-  });
+res.json({message:"ok"});
 
-  router.use(adminAuth);
+});
 
-  /* =========================
-     CREATE ORDER
-  ========================= */
-  router.post("/orders", async (req, res) => {
-    try {
-      const { batch_name, agent_name, quantity } = req.body;
+router.use(adminAuth);
 
-      const qty = Number(quantity);
+/* =================
+ORDERS
+================= */
 
-      if (!batch_name || !agent_name || !qty)
-        return res.status(400).json({ message: "All fields required" });
+router.get("/orders", async(req,res)=>{
 
-      if (!Number.isInteger(qty) || qty < 1 || qty > 500)
-        return res.status(400).json({ message: "Invalid quantity (1–500)" });
+const result = await pool.query(
+`SELECT * FROM tag_orders
+ORDER BY created_at DESC`
+);
 
-      const result = await pool.query(
-        `INSERT INTO tag_orders
-         (batch_name, agent_name, quantity_ordered, quantity_fulfilled, status)
-         VALUES ($1,$2,$3,0,'pending')
-         RETURNING *`,
-        [batch_name.trim(), agent_name.trim(), qty]
-      );
+res.json(result.rows);
 
-      res.json(result.rows[0]);
+});
 
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ message: "Order creation failed" });
-    }
-  });
+/* =================
+INVENTORY
+================= */
 
-  /* =========================
-     GENERATE BATCH
-  ========================= */
-  router.post("/generate-batch", async (req, res) => {
-    const client = await pool.connect();
+router.get("/inventory", async(req,res)=>{
 
-    try {
-      await client.query("BEGIN");
+const result = await pool.query(`
+SELECT
+q.id,
+q.qr_code,
+q.status,
+q.activated_at,
+q.expires_at,
+b.batch_name
+FROM qr_tags q
+LEFT JOIN qr_batches b
+ON q.batch_id=b.id
+ORDER BY q.created_at DESC
+LIMIT 1000
+`);
 
-      const orderResult = await client.query(
-        `SELECT * FROM tag_orders
-         WHERE status='pending'
-         ORDER BY created_at ASC
-         LIMIT 1
-         FOR UPDATE`
-      );
+res.json(result.rows);
 
-      if (orderResult.rows.length === 0) {
-        await client.query("ROLLBACK");
-        return res.status(400).json({ message: "No pending orders" });
-      }
+});
 
-      const order = orderResult.rows[0];
-      const qrToGenerate = order.quantity_ordered * 2;
+/* =================
+EXTEND SUBSCRIPTION
+================= */
 
-      const batchResult = await client.query(
-        `INSERT INTO qr_batches (batch_name, quantity)
-         VALUES ($1, $2)
-         RETURNING *`,
-        [order.batch_name, qrToGenerate]
-      );
+router.post("/extend/:id", async(req,res)=>{
 
-      const batchId = batchResult.rows[0].id;
+const {months} = req.body;
+const id = req.params.id;
 
-      for (let i = 0; i < qrToGenerate; i++) {
-        await client.query(
-          `INSERT INTO qr_tags
-           (qr_code, status, type, batch_id)
-           VALUES ($1,'inactive','vehicle',$2)`,
-          [uuidv4(), batchId]
-        );
-      }
+await pool.query(
+`UPDATE qr_tags
+SET expires_at = expires_at + ($1 || ' months')::interval
+WHERE id=$2`,
+[months,id]
+);
 
-      await client.query(
-        `UPDATE tag_orders
-         SET quantity_fulfilled = quantity_ordered,
-             status = 'completed'
-         WHERE id=$1`,
-        [order.id]
-      );
+res.json({message:"extended"});
 
-      await client.query("COMMIT");
+});
 
-      res.json({ message: `${qrToGenerate} QR codes generated` });
+return router;
 
-    } catch (err) {
-      await client.query("ROLLBACK");
-      console.error(err);
-      res.status(500).json({ message: "Batch generation failed" });
-    } finally {
-      client.release();
-    }
-  });
-
-  /* =========================
-     LIST ORDERS
-  ========================= */
-  router.get("/orders", async (req, res) => {
-    try {
-      const result = await pool.query(
-        `SELECT * FROM tag_orders
-         ORDER BY created_at DESC`
-      );
-      res.json(result.rows);
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ message: "Failed to fetch orders" });
-    }
-  });
-
-  /* =========================
-     INVENTORY
-  ========================= */
-  router.get("/inventory", async (req, res) => {
-    try {
-      const result = await pool.query(`
-        SELECT 
-          q.id,
-          q.qr_code,
-          q.status,
-          q.created_at,
-          q.activated_at,
-          b.batch_name
-        FROM qr_tags q
-        LEFT JOIN qr_batches b
-        ON q.batch_id = b.id
-        ORDER BY q.created_at DESC
-        LIMIT 1000
-      `);
-
-      res.json(result.rows);
-
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ message: "Failed to fetch inventory" });
-    }
-  });
-
-  return router;
 }
