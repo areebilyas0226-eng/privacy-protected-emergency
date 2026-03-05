@@ -43,9 +43,16 @@ export default function Inventory() {
     }
   }
 
+  /* ======================
+     VIEW QR CODE
+  ====================== */
   function viewQR(code) {
     const url = `${window.location.origin}/qr/${code}`;
-    window.open(url, "_blank");
+
+    const qrImage =
+      `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`;
+
+    window.open(qrImage, "_blank");
   }
 
   const filteredTags = tags.filter((tag) => {
@@ -112,14 +119,8 @@ export default function Inventory() {
                 filteredTags.map((tag, index) => (
                   <tr key={tag?.id || index}>
                     <td style={styles.qr}>{tag?.qr_code || "-"}</td>
-
-                    <td style={styles.td}>
-                      {tag?.batch_name || "-"}
-                    </td>
-
-                    <td style={styles.td}>
-                      {tag?.status || "-"}
-                    </td>
+                    <td style={styles.td}>{tag?.batch_name || "-"}</td>
+                    <td style={styles.td}>{tag?.status || "-"}</td>
 
                     <td style={styles.td}>
                       {tag?.activated_at
@@ -165,93 +166,58 @@ export default function Inventory() {
 }
 
 const styles = {
-  wrapper: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "30px",
+  wrapper:{display:"flex",flexDirection:"column",gap:"30px"},
+  card:{
+    background:"transparent",
+    padding:"25px",
+    borderRadius:"14px",
+    backdropFilter:"blur(10px)",
+    border:"1px solid rgba(255,255,255,0.2)"
   },
-
-  card: {
-    background: "transparent",
-    padding: "25px",
-    borderRadius: "14px",
-    backdropFilter: "blur(10px)",
-    border: "1px solid rgba(255,255,255,0.2)",
+  heading:{marginBottom:"20px",color:"#000"},
+  controls:{display:"flex",gap:"15px",marginBottom:"20px"},
+  search:{
+    padding:"10px",
+    borderRadius:"8px",
+    border:"1px solid #ccc",
+    width:"250px",
+    background:"rgba(255,255,255,0.6)"
   },
-
-  heading: {
-    marginBottom: "20px",
-    color: "#000",
+  filter:{
+    padding:"10px",
+    borderRadius:"8px",
+    border:"1px solid #ccc",
+    background:"rgba(255,255,255,0.6)"
   },
-
-  controls: {
-    display: "flex",
-    gap: "15px",
-    marginBottom: "20px",
+  table:{width:"100%",borderCollapse:"collapse",marginTop:"10px",color:"#000"},
+  th:{
+    textAlign:"left",
+    padding:"12px",
+    borderBottom:"2px solid rgba(0,0,0,0.2)",
+    fontWeight:"600"
   },
-
-  search: {
-    padding: "10px",
-    borderRadius: "8px",
-    border: "1px solid #ccc",
-    width: "250px",
-    background: "rgba(255,255,255,0.6)",
+  td:{padding:"12px",borderBottom:"1px solid rgba(0,0,0,0.1)"},
+  qr:{
+    padding:"12px",
+    borderBottom:"1px solid rgba(0,0,0,0.1)",
+    fontFamily:"monospace",
+    wordBreak:"break-all"
   },
-
-  filter: {
-    padding: "10px",
-    borderRadius: "8px",
-    border: "1px solid #ccc",
-    background: "rgba(255,255,255,0.6)",
+  viewBtn:{
+    padding:"6px 12px",
+    borderRadius:"6px",
+    border:"none",
+    background:"#3b82f6",
+    color:"#fff",
+    cursor:"pointer"
   },
-
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-    marginTop: "10px",
-    color: "#000",
+  extendBtn:{
+    padding:"6px 12px",
+    borderRadius:"6px",
+    border:"none",
+    background:"#22c55e",
+    color:"#fff",
+    cursor:"pointer"
   },
-
-  th: {
-    textAlign: "left",
-    padding: "12px",
-    borderBottom: "2px solid rgba(0,0,0,0.2)",
-    fontWeight: "600",
-  },
-
-  td: {
-    padding: "12px",
-    borderBottom: "1px solid rgba(0,0,0,0.1)",
-  },
-
-  qr: {
-    padding: "12px",
-    borderBottom: "1px solid rgba(0,0,0,0.1)",
-    fontFamily: "monospace",
-    wordBreak: "break-all",
-  },
-
-  viewBtn: {
-    padding: "6px 12px",
-    borderRadius: "6px",
-    border: "none",
-    background: "#3b82f6",
-    color: "#fff",
-    cursor: "pointer",
-  },
-
-  extendBtn: {
-    padding: "6px 12px",
-    borderRadius: "6px",
-    border: "none",
-    background: "#22c55e",
-    color: "#fff",
-    cursor: "pointer",
-  },
-
-  empty: {
-    textAlign: "center",
-    padding: "20px",
-    color: "#000",
-  },
+  empty:{textAlign:"center",padding:"20px",color:"#000"}
 };
