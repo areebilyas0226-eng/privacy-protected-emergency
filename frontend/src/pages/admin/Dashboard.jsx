@@ -26,8 +26,10 @@ try{
 
 setLoading(true);
 
+/* FIXED API ROUTE */
+
 const [ordersRes,inventoryRes] = await Promise.all([
-fetch(buildUrl("/admin/orders"),{credentials:"include"}),
+fetch(buildUrl("/admin/qr-orders"),{credentials:"include"}),
 fetch(buildUrl("/admin/inventory"),{credentials:"include"})
 ]);
 
@@ -74,6 +76,8 @@ if(submitting) return;
 try{
 
 setSubmitting(true);
+
+/* DASHBOARD ORDER CREATION */
 
 const res = await fetch(buildUrl("/admin/orders"),{
 method:"POST",
