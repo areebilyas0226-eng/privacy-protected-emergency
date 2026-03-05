@@ -5,6 +5,7 @@ import QRResolver from "./pages/QRResolver";
 import ActivatePage from "./pages/ActivatePage";
 import EmergencyPage from "./pages/EmergencyPage";
 import ExpiredPage from "./pages/ExpiredPage";
+import RegisterPage from "./pages/RegisterPage";   // FIX: Missing import
 
 import AdminDashboard from "./pages/admin/Dashboard";
 import OrdersPage from "./pages/admin/Order";
@@ -77,13 +78,15 @@ function App() {
         {/* Root Redirect */}
         <Route path="/" element={<Navigate to="/admin-login" replace />} />
 
-        {/* Public Routes */}
+        {/* Public QR Flow */}
         <Route path="/qr/:code" element={<QRResolver />} />
+        <Route path="/register/:code" element={<RegisterPage />} />
         <Route path="/activate/:code" element={<ActivatePage />} />
         <Route path="/emergency/:code" element={<EmergencyPage />} />
         <Route path="/expired/:code" element={<ExpiredPage />} />
+
+        {/* Admin Login */}
         <Route path="/admin-login" element={<AdminLogin />} />
-        <Route path="/register/:code" element={<RegisterPage />} />
 
         {/* Protected Admin Routes */}
         <Route
