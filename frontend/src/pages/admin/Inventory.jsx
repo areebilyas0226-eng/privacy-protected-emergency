@@ -28,9 +28,32 @@ export default function Inventory() {
     }
   }
 
+  async function extendSubscription(id) {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/extend/${id}`, {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (!res.ok) throw new Error("Extend failed");
+
+      fetchTags();
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  function viewQR(code) {
+    const url = `${window.location.origin}/qr/${code}`;
+    window.open(url, "_blank");
+  }
+
   const filteredTags = tags.filter((tag) => {
-    const matchesSearch =
-      tag.qr_code?.toLowerCase().includes(search.toLowerCase());
+    const code = tag?.qr_code || "";
+
+    const matchesSearch = code
+      .toLowerCase()
+      .includes(search.toLowerCase());
 
     const matchesStatus = statusFilter
       ? tag.status === statusFilter
@@ -72,6 +95,8 @@ export default function Inventory() {
                 <th style={styles.th}>Batch</th>
                 <th style={styles.th}>Status</th>
                 <th style={styles.th}>Activated At</th>
+                <th style={styles.th}>Expired At</th>
+                <th style={styles.th}>View QR</th>
                 <th style={styles.th}>Action</th>
               </tr>
             </thead>
@@ -79,7 +104,7 @@ export default function Inventory() {
             <tbody>
               {filteredTags.length === 0 ? (
                 <tr>
-                  <td colSpan="5" style={styles.empty}>
+                  <td colSpan="7" style={styles.empty}>
                     No inventory found
                   </td>
                 </tr>
@@ -87,8 +112,15 @@ export default function Inventory() {
                 filteredTags.map((tag, index) => (
                   <tr key={tag?.id || index}>
                     <td style={styles.qr}>{tag?.qr_code || "-"}</td>
-                    <td style={styles.td}>{tag?.batch_name || "-"}</td>
-                    <td style={styles.td}>{tag?.status || "-"}</td>
+
+                    <td style={styles.td}>
+                      {tag?.batch_name || "-"}
+                    </td>
+
+                    <td style={styles.td}>
+                      {tag?.status || "-"}
+                    </td>
+
                     <td style={styles.td}>
                       {tag?.activated_at
                         ? new Date(tag.activated_at).toLocaleDateString()
@@ -96,7 +128,27 @@ export default function Inventory() {
                     </td>
 
                     <td style={styles.td}>
-                      <button style={styles.extendBtn}>
+                      {tag?.expired_at
+                        ? new Date(tag.expired_at).toLocaleDateString()
+                        : "-"}
+                    </td>
+
+                    <td style={styles.td}>
+                      <button
+                        style={styles.viewBtn}
+                        onClick={() => viewQR(tag.qr_code)}
+                      >
+                        View
+                      </button>
+                    </td>
+
+                    <td style={styles.td}>
+                      <button
+                        style={styles.extendBtn}
+                        onClick={() =>
+                          extendSubscription(tag.id)
+                        }
+                      >
                         Extend
                       </button>
                     </td>
@@ -105,6 +157,7 @@ export default function Inventory() {
               )}
             </tbody>
           </table>
+
         </div>
       </div>
     </DashboardLayout>
@@ -176,6 +229,15 @@ const styles = {
     borderBottom: "1px solid rgba(0,0,0,0.1)",
     fontFamily: "monospace",
     wordBreak: "break-all",
+  },
+
+  viewBtn: {
+    padding: "6px 12px",
+    borderRadius: "6px",
+    border: "none",
+    background: "#3b82f6",
+    color: "#fff",
+    cursor: "pointer",
   },
 
   extendBtn: {
