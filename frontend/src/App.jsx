@@ -83,6 +83,7 @@ function App() {
         <Route path="/emergency/:code" element={<EmergencyPage />} />
         <Route path="/expired/:code" element={<ExpiredPage />} />
         <Route path="/admin-login" element={<AdminLogin />} />
+        <Route path="/register/:code" element={<RegisterPage />} />
 
         {/* Protected Admin Routes */}
         <Route

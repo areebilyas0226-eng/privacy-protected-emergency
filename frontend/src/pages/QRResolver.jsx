@@ -3,45 +3,74 @@ import { useEffect } from "react";
 
 const API_BASE = import.meta.env.VITE_API_URL;
 
-export default function QRResolver() {
+export default function QRResolver(){
+
   const { code } = useParams();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    async function resolveQR() {
-      try {
+  useEffect(()=>{
+
+    async function resolveQR(){
+
+      try{
+
         const res = await fetch(`${API_BASE}/api/qr/${code}`);
 
-        if (!res.ok) {
+        if(!res.ok){
           navigate(`/expired/${code}`);
           return;
         }
 
         const data = await res.json();
 
-        if (data.status === "inactive") {
-          navigate(`/activate/${code}`);
-        }
-        else if (data.status === "active") {
-          navigate(`/emergency/${code}`);
-        }
-        else if (data.status === "expired") {
-          navigate(`/expired/${code}`);
-        }
-        else {
-          navigate(`/activate/${code}`);
+        /* profile not registered */
+        if(!data.profiles_id){
+          navigate(`/register/${code}`);
+          return;
         }
 
-      } catch {
+        /* inactive */
+        if(data.status === "inactive"){
+          navigate(`/activate/${code}`);
+          return;
+        }
+
+        /* active */
+        if(data.status === "active"){
+
+          const now = new Date();
+          const expiry = new Date(data.expires_at);
+
+          if(expiry > now){
+            navigate(`/emergency/${code}`);
+          }else{
+            navigate(`/expired/${code}`);
+          }
+
+          return;
+        }
+
         navigate(`/expired/${code}`);
+
+      }catch{
+
+        navigate(`/expired/${code}`);
+
       }
+
     }
 
     resolveQR();
-  }, [code, navigate]);
+
+  },[code,navigate]);
 
   return (
-    <div style={{ padding: 40 }}>
+    <div style={{
+      minHeight:"100vh",
+      display:"flex",
+      justifyContent:"center",
+      alignItems:"center"
+    }}>
       Resolving QR...
     </div>
   );
