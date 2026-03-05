@@ -12,16 +12,16 @@ const router = express.Router();
 ADMIN LOGIN
 ================= */
 
-router.post("/login", async (req, res) => {
+router.post("/login", async (req,res)=>{
 
-const { email, password } = req.body;
+const {email,password} = req.body;
 
-if (!email || !password) {
-return res.status(400).json({ message: "Missing credentials" });
+if(!email || !password){
+return res.status(400).json({message:"Missing credentials"});
 }
 
-if (email !== process.env.ADMIN_EMAIL) {
-return res.status(401).json({ message: "Invalid credentials" });
+if(email !== process.env.ADMIN_EMAIL){
+return res.status(401).json({message:"Invalid credentials"});
 }
 
 const valid = await bcrypt.compare(
@@ -29,23 +29,23 @@ password,
 process.env.ADMIN_PASSWORD_HASH
 );
 
-if (!valid) {
-return res.status(401).json({ message: "Invalid credentials" });
+if(!valid){
+return res.status(401).json({message:"Invalid credentials"});
 }
 
 const token = jwt.sign(
-{ role: "admin" },
+{role:"admin"},
 process.env.JWT_SECRET,
-{ expiresIn: "1h" }
+{expiresIn:"1h"}
 );
 
-res.cookie("admin_token", token, {
-httpOnly: true,
-secure: process.env.NODE_ENV === "production",
-sameSite: "none"
+res.cookie("admin_token",token,{
+httpOnly:true,
+secure:process.env.NODE_ENV==="production",
+sameSite:"none"
 });
 
-res.json({ message: "login_success" });
+res.json({message:"login_success"});
 
 });
 
@@ -53,11 +53,11 @@ res.json({ message: "login_success" });
 VERIFY SESSION
 ================= */
 
-router.get("/me", adminAuth, async (req, res) => {
+router.get("/me",adminAuth,(req,res)=>{
 
 res.json({
-authenticated: true,
-role: "admin"
+authenticated:true,
+role:"admin"
 });
 
 });
@@ -68,85 +68,116 @@ PROTECTED ROUTES
 
 router.use(adminAuth);
 
-/* =================
-CREATE ORDER
-================= */
+/* =====================================================
+DASHBOARD ORDERS (OLD SYSTEM - DO NOT TOUCH)
+===================================================== */
 
-router.post("/orders", async (req, res) => {
+router.post("/orders", async (req,res)=>{
 
-try {
+try{
 
-const { customer_name, mobile, quantity } = req.body;
+const {customer_name,mobile,quantity} = req.body;
 
-if (!customer_name || !mobile || !quantity) {
-return res.status(400).json({ message: "Missing fields" });
+if(!customer_name || !mobile || !quantity){
+return res.status(400).json({message:"Missing fields"});
 }
 
 const orderId = uuidv4();
 
-/* create order */
-
 await pool.query(
 `INSERT INTO tag_orders
-(id, customer_name, mobile, quantity_ordered, quantity_fulfilled, status)
+(id,customer_name,mobile,quantity_ordered,quantity_fulfilled,status)
 VALUES ($1,$2,$3,$4,0,'pending')`,
-[orderId, customer_name, mobile, quantity]
+[orderId,customer_name,mobile,quantity]
 );
 
-/* =================
-DOUBLE QR GENERATION
-================= */
+res.json({message:"order_created"});
+
+}catch(err){
+
+console.error(err);
+res.status(500).json({message:"Order creation failed"});
+
+}
+
+});
+
+/* =====================================================
+QR ORDERS (ORDERS PAGE SYSTEM)
+===================================================== */
+
+router.post("/qr-orders", async (req,res)=>{
+
+try{
+
+const {batch_name,agent_name,quantity} = req.body;
+
+if(!batch_name || !agent_name || !quantity){
+return res.status(400).json({message:"Missing fields"});
+}
+
+const orderId = uuidv4();
+
+/* save qr order */
+
+await pool.query(
+`INSERT INTO qr_orders
+(id,batch_name,agent_name,quantity,status)
+VALUES ($1,$2,$3,$4,'pending')`,
+[orderId,batch_name,agent_name,quantity]
+);
+
+/* generate DOUBLE QR */
 
 const totalQR = Number(quantity) * 2;
 
-for (let i = 0; i < totalQR; i++) {
+for(let i=0;i<totalQR;i++){
 
 const qrCode = uuidv4();
 
 await pool.query(
 `INSERT INTO qr_tags
-(id, qr_code, status)
+(id,qr_code,status)
 VALUES ($1,$2,'inactive')`,
-[uuidv4(), qrCode]
+[uuidv4(),qrCode]
 );
 
 }
 
 res.json({
-message: "order_created",
-order_id: orderId,
-generated_qr: totalQR
+message:"qr_order_created",
+generated_qr:totalQR
 });
 
-} catch (err) {
+}catch(err){
 
-console.error("Order creation error:", err);
-res.status(500).json({ message: "Order creation failed" });
+console.error(err);
+res.status(500).json({message:"QR order failed"});
 
 }
 
 });
 
 /* =================
-ORDERS LIST
+QR ORDER HISTORY
 ================= */
 
-router.get("/orders", async (req, res) => {
+router.get("/qr-orders", async (req,res)=>{
 
-try {
+try{
 
 const result = await pool.query(`
 SELECT *
-FROM tag_orders
+FROM qr_orders
 ORDER BY created_at DESC
 `);
 
 res.json(result.rows);
 
-} catch (err) {
+}catch(err){
 
 console.error(err);
-res.status(500).json({ message: "Failed to fetch orders" });
+res.status(500).json({message:"Failed to fetch QR orders"});
 
 }
 
@@ -156,9 +187,9 @@ res.status(500).json({ message: "Failed to fetch orders" });
 INVENTORY
 ================= */
 
-router.get("/inventory", async (req, res) => {
+router.get("/inventory", async (req,res)=>{
 
-try {
+try{
 
 const result = await pool.query(`
 SELECT
@@ -177,10 +208,10 @@ LIMIT 1000
 
 res.json(result.rows);
 
-} catch (err) {
+}catch(err){
 
 console.error(err);
-res.status(500).json({ message: "Failed to fetch inventory" });
+res.status(500).json({message:"Failed to fetch inventory"});
 
 }
 
@@ -190,30 +221,30 @@ res.status(500).json({ message: "Failed to fetch inventory" });
 EXTEND SUBSCRIPTION
 ================= */
 
-router.post("/extend/:id", async (req, res) => {
+router.post("/extend/:id", async (req,res)=>{
 
-try {
+try{
 
-const { months } = req.body;
+const {months} = req.body;
 const id = req.params.id;
 
-if (!months) {
-return res.status(400).json({ message: "Months required" });
+if(!months){
+return res.status(400).json({message:"Months required"});
 }
 
 await pool.query(
 `UPDATE qr_tags
 SET expires_at = expires_at + ($1 || ' months')::interval
-WHERE id = $2`,
-[months, id]
+WHERE id=$2`,
+[months,id]
 );
 
-res.json({ message: "subscription_extended" });
+res.json({message:"subscription_extended"});
 
-} catch (err) {
+}catch(err){
 
 console.error(err);
-res.status(500).json({ message: "Extension failed" });
+res.status(500).json({message:"Extension failed"});
 
 }
 
