@@ -1,47 +1,79 @@
 import express from "express";
-import { v4 as uuidv4 } from "uuid";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import adminAuth from "../middleware/adminAuth.js";
 
-export default function adminRoutes(pool){
+export default function adminRoutes(pool) {
 
 const router = express.Router();
 
 /* =================
-LOGIN
+ADMIN LOGIN
 ================= */
 
-router.post("/login", async(req,res)=>{
+router.post("/login", async (req, res) => {
 
-const {email,password} = req.body;
+const { email, password } = req.body;
 
-if(
-email !== process.env.ADMIN_EMAIL
-) return res.status(401).json({message:"Invalid"});
+if (!email || !password) {
+return res.status(400).json({ message: "Missing credentials" });
+}
+
+/* email check */
+
+if (email !== process.env.ADMIN_EMAIL) {
+return res.status(401).json({ message: "Invalid credentials" });
+}
+
+/* password check */
 
 const valid = await bcrypt.compare(
 password,
 process.env.ADMIN_PASSWORD_HASH
 );
 
-if(!valid)
-return res.status(401).json({message:"Invalid"});
+if (!valid) {
+return res.status(401).json({ message: "Invalid credentials" });
+}
+
+/* create token */
 
 const token = jwt.sign(
-{role:"admin"},
+{ role: "admin" },
 process.env.JWT_SECRET,
-{expiresIn:"1h"}
+{ expiresIn: "1h" }
 );
 
-res.cookie("admin_token",token,{
-httpOnly:true,
-sameSite:"lax"
+/* store cookie */
+
+res.cookie("admin_token", token, {
+httpOnly: true,
+secure: process.env.NODE_ENV === "production",
+sameSite: "none",
 });
 
-res.json({message:"ok"});
+/* success */
+
+res.json({ message: "login_success" });
 
 });
+
+/* =================
+VERIFY SESSION
+================= */
+
+router.get("/me", adminAuth, async (req, res) => {
+
+return res.json({
+authenticated: true,
+role: "admin"
+});
+
+});
+
+/* =================
+PROTECTED ROUTES
+================= */
 
 router.use(adminAuth);
 
@@ -49,12 +81,13 @@ router.use(adminAuth);
 ORDERS
 ================= */
 
-router.get("/orders", async(req,res)=>{
+router.get("/orders", async (req, res) => {
 
-const result = await pool.query(
-`SELECT * FROM tag_orders
-ORDER BY created_at DESC`
-);
+const result = await pool.query(`
+SELECT *
+FROM tag_orders
+ORDER BY created_at DESC
+`);
 
 res.json(result.rows);
 
@@ -64,7 +97,7 @@ res.json(result.rows);
 INVENTORY
 ================= */
 
-router.get("/inventory", async(req,res)=>{
+router.get("/inventory", async (req, res) => {
 
 const result = await pool.query(`
 SELECT
@@ -76,7 +109,7 @@ q.expires_at,
 b.batch_name
 FROM qr_tags q
 LEFT JOIN qr_batches b
-ON q.batch_id=b.id
+ON q.batch_id = b.id
 ORDER BY q.created_at DESC
 LIMIT 1000
 `);
@@ -89,19 +122,23 @@ res.json(result.rows);
 EXTEND SUBSCRIPTION
 ================= */
 
-router.post("/extend/:id", async(req,res)=>{
+router.post("/extend/:id", async (req, res) => {
 
-const {months} = req.body;
+const { months } = req.body;
 const id = req.params.id;
+
+if (!months) {
+return res.status(400).json({ message: "Months required" });
+}
 
 await pool.query(
 `UPDATE qr_tags
 SET expires_at = expires_at + ($1 || ' months')::interval
-WHERE id=$2`,
-[months,id]
+WHERE id = $2`,
+[months, id]
 );
 
-res.json({message:"extended"});
+res.json({ message: "subscription_extended" });
 
 });
 
