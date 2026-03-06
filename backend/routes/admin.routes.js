@@ -137,6 +137,8 @@ QR ORDERS SYSTEM
 
 router.post("/qr-orders", async (req,res)=>{
 
+const client = await pool.connect();
+
 try{
 
 const {batch_name,agent_name,quantity} = req.body;
@@ -145,24 +147,24 @@ if(!batch_name || !agent_name || !quantity){
 return res.status(400).json({message:"Missing fields"});
 }
 
+await client.query("BEGIN");
+
 const orderId = uuidv4();
 
-await pool.query(
+await client.query(
 `INSERT INTO qr_orders
 (id,batch_name,agent_name,quantity,status)
 VALUES ($1,$2,$3,$4,'pending')`,
 [orderId,batch_name,agent_name,quantity]
 );
 
-/* ======================
-SAFE QR GENERATION
-====================== */
-
 const totalQR = Number(quantity) * 2;
+
+/* SAFE QR GENERATION */
 
 for(let i=0;i<totalQR;i++){
 
-await pool.query(
+await client.query(
 `
 INSERT INTO qr_tags (id, qr_code, status, order_id)
 VALUES ($1,$2,'inactive',$3)
@@ -176,6 +178,8 @@ orderId
 
 }
 
+await client.query("COMMIT");
+
 res.json({
 message:"qr_order_created",
 generated_qr:totalQR
@@ -183,12 +187,19 @@ generated_qr:totalQR
 
 }catch(err){
 
+await client.query("ROLLBACK");
+
 console.error("QR CREATE ERROR:",err);
 
 res.status(500).json({
 message:"QR order failed",
 error:err.message
 });
+
+}finally{
+
+client.release();
+
 }
 
 });
@@ -283,8 +294,7 @@ let y = 30;
 
 for(const row of result.rows){
 
-const dataURL = await QRCode.toDataURL(String(row.qr_code));
-
+const dataURL = await QRCode.toDataURL(row.qr_code);
 const base64 = dataURL.split(",")[1];
 const buffer = Buffer.from(base64,"base64");
 
@@ -295,6 +305,12 @@ x += 120;
 if(x > 450){
 x = 30;
 y += 120;
+}
+
+if(y > 700){
+doc.addPage();
+x = 30;
+y = 30;
 }
 
 }
@@ -309,6 +325,7 @@ res.status(500).json({
 message:"QR download failed",
 error:err.message
 });
+
 }
 
 });
