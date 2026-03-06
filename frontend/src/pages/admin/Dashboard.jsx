@@ -18,7 +18,7 @@ try{
 setLoading(true);
 
 const [ordersRes,inventoryRes] = await Promise.all([
-fetch(buildUrl("/admin/orders"),{credentials:"include"}),
+fetch(buildUrl("/admin/qr-orders"),{credentials:"include"}),
 fetch(buildUrl("/admin/inventory"),{credentials:"include"})
 ]);
 
@@ -60,9 +60,7 @@ const inactive =
 inventory.filter(i=>i.status==="inactive").length;
 
 const expired =
-inventory.filter(i=>
-i.expires_at && new Date(i.expires_at) < new Date()
-).length;
+inventory.filter(i=>i.expires_at && new Date(i.expires_at) < new Date()).length;
 
 if(loading){
 
@@ -101,18 +99,32 @@ Operational Overview
 
 </div>
 
-{/* ACTION AREA */}
+{/* SYSTEM STATUS */}
 
 <div className="dashboard-grid">
 
-<div className="order-card">
+<div className="system-card">
 
 <h2>Tag System Status</h2>
 
-<p style={{color:"white",opacity:.8}}>
-QR tags are managed through the Orders page.
-Use Orders to generate batches and download QR codes.
-</p>
+<div className="system-info">
+
+<div>
+<h3>QR Generation</h3>
+<p>Orders page creates QR batches.</p>
+</div>
+
+<div>
+<h3>Activation</h3>
+<p>Tags activate after user registration.</p>
+</div>
+
+<div>
+<h3>Expiry</h3>
+<p>Each tag remains active for 30 days.</p>
+</div>
+
+</div>
 
 </div>
 
@@ -132,7 +144,7 @@ Analytics Graph Coming Soon
 
 <div className="orders-section">
 
-<h2>Recent Orders</h2>
+<h2>Recent QR Orders</h2>
 
 <table className="orders-table">
 
@@ -165,11 +177,11 @@ No Orders Found
 
 <td>{index+1}</td>
 
-<td>{o.batch_name || "-"}</td>
+<td>{o.batch_name}</td>
 
-<td>{o.agent_name || "-"}</td>
+<td>{o.agent_name}</td>
 
-<td>{o.quantity_ordered}</td>
+<td>{o.quantity}</td>
 
 <td className={`status-${o.status}`}>
 {o.status}
@@ -197,17 +209,13 @@ No Orders Found
 
 }
 
-/* STAT CARD */
-
 function StatCard({title,value}){
 
 return(
 
 <div className="stat-card">
-
 <h4>{title}</h4>
 <h2>{value}</h2>
-
 </div>
 
 );
