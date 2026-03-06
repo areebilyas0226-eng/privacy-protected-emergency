@@ -63,7 +63,7 @@ res.json({authenticated:true,role:"admin"});
 
 router.use(adminAuth);
 
-/* ================= DASHBOARD ORDERS ================= */
+/* ================= CREATE ORDER ================= */
 
 router.post("/orders", async (req,res)=>{
 try{
@@ -137,20 +137,21 @@ VALUES ($1,$2,$3,$4,'pending')`,
 
 const totalQR = Number(quantity) * 2;
 
-/* ===== QR GENERATION ===== */
-
 for(let i=0;i<totalQR;i++){
+
+const qrId = uuidv4();
+const qrCode = uuidv4();
 
 await client.query(
 `
 INSERT INTO qr_tags
 (id, qr_code, status, order_id, type)
 VALUES
-($1,$2,'inactive',$3,'yearly')
+($1,$2,'inactive',$3,'emergency')
 `,
 [
-uuidv4(),
-uuidv4(),
+qrId,
+qrCode,
 orderId
 ]
 );
@@ -212,9 +213,9 @@ SELECT
 q.id,
 q.qr_code,
 q.status,
+q.type,
 q.activated_at,
 q.expires_at,
-q.type,
 o.batch_name
 FROM qr_tags q
 LEFT JOIN qr_orders o
@@ -234,6 +235,7 @@ res.status(500).json({message:"Failed to fetch inventory"});
 /* ================= DOWNLOAD QR PDF ================= */
 
 router.get("/order-qrs/:id", async (req,res)=>{
+
 try{
 
 const orderId = req.params.id;
@@ -261,7 +263,7 @@ let y = 30;
 
 for(const row of result.rows){
 
-const dataURL = await QRCode.toDataURL(row.qr_code);
+const dataURL = await QRCode.toDataURL(String(row.qr_code));
 const base64 = dataURL.split(",")[1];
 const buffer = Buffer.from(base64,"base64");
 
@@ -300,6 +302,7 @@ error:err.message
 /* ================= EXTEND SUBSCRIPTION ================= */
 
 router.post("/extend/:id", async (req,res)=>{
+
 try{
 
 const {months} = req.body;
@@ -324,6 +327,7 @@ res.json({message:"subscription_extended"});
 console.error(err);
 res.status(500).json({message:"Extension failed"});
 }
+
 });
 
 return router;
