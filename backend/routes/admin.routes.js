@@ -66,12 +66,7 @@ VERIFY SESSION
 ================= */
 
 router.get("/me",adminAuth,(req,res)=>{
-
-res.json({
-authenticated:true,
-role:"admin"
-});
-
+res.json({authenticated:true,role:"admin"});
 });
 
 /* =================
@@ -134,7 +129,6 @@ res.json(result.rows);
 
 console.error(err);
 res.status(500).json({message:"Failed to fetch orders"});
-
 }
 
 });
@@ -155,8 +149,6 @@ return res.status(400).json({message:"Missing fields"});
 
 const orderId = uuidv4();
 
-/* save order */
-
 await pool.query(
 `INSERT INTO qr_orders
 (id,batch_name,agent_name,quantity,status)
@@ -164,7 +156,7 @@ VALUES ($1,$2,$3,$4,'pending')`,
 [orderId,batch_name,agent_name,quantity]
 );
 
-/* generate QR */
+/* Generate QR codes */
 
 const totalQR = Number(quantity) * 2;
 
@@ -197,7 +189,6 @@ generated_qr:totalQR
 
 console.error(err);
 res.status(500).json({message:"QR order failed"});
-
 }
 
 });
@@ -222,7 +213,6 @@ res.json(result.rows);
 
 console.error(err);
 res.status(500).json({message:"Failed to fetch QR orders"});
-
 }
 
 });
@@ -256,7 +246,6 @@ res.json(result.rows);
 
 console.error(err);
 res.status(500).json({message:"Failed to fetch inventory"});
-
 }
 
 });
@@ -271,11 +260,10 @@ try{
 
 const orderId = req.params.id;
 
-const result = await pool.query(`
-SELECT qr_code
-FROM qr_tags
-WHERE order_id=$1
-`,[orderId]);
+const result = await pool.query(
+`SELECT qr_code FROM qr_tags WHERE order_id=$1`,
+[orderId]
+);
 
 if(result.rows.length===0){
 return res.status(404).json({message:"No QR codes found"});
@@ -288,7 +276,6 @@ res.setHeader(
 );
 
 const doc = new PDFDocument({margin:30});
-
 doc.pipe(res);
 
 let x = 30;
@@ -296,9 +283,11 @@ let y = 30;
 
 for(const row of result.rows){
 
-const dataURL = await QRCode.toDataURL(row.qr_code);
+if(!row.qr_code) continue;
 
-const base64 = dataURL.replace(/^data:image\/png;base64,/,"");
+const dataURL = await QRCode.toDataURL(String(row.qr_code));
+
+const base64 = dataURL.split(",")[1];
 const buffer = Buffer.from(base64,"base64");
 
 doc.image(buffer,x,y,{width:100});
@@ -316,8 +305,12 @@ doc.end();
 
 }catch(err){
 
-console.error(err);
-res.status(500).json({message:"QR download failed"});
+console.error("QR PDF ERROR:",err);
+
+res.status(500).json({
+message:"QR download failed",
+error:err.message
+});
 
 }
 
@@ -351,7 +344,6 @@ res.json({message:"subscription_extended"});
 
 console.error(err);
 res.status(500).json({message:"Extension failed"});
-
 }
 
 });
