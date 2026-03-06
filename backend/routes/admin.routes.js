@@ -4,6 +4,9 @@ import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import adminAuth from "../middleware/adminAuth.js";
 
+import QRCode from "qrcode";
+import PDFDocument from "pdfkit";
+
 export default function adminRoutes(pool){
 
 const router = express.Router();
@@ -78,7 +81,7 @@ PROTECTED ROUTES
 router.use(adminAuth);
 
 /* =====================================================
-DASHBOARD ORDERS (Create Order on Dashboard)
+DASHBOARD ORDERS
 ===================================================== */
 
 router.post("/orders", async (req,res)=>{
@@ -137,7 +140,7 @@ res.status(500).json({message:"Failed to fetch orders"});
 });
 
 /* =====================================================
-QR ORDERS (Orders Page System)
+QR ORDERS SYSTEM
 ===================================================== */
 
 router.post("/qr-orders", async (req,res)=>{
@@ -152,7 +155,7 @@ return res.status(400).json({message:"Missing fields"});
 
 const orderId = uuidv4();
 
-/* save qr order */
+/* save order */
 
 await pool.query(
 `INSERT INTO qr_orders
@@ -161,13 +164,9 @@ VALUES ($1,$2,$3,$4,'pending')`,
 [orderId,batch_name,agent_name,quantity]
 );
 
-/* =================
-DOUBLE QR GENERATION
-================= */
+/* generate QR */
 
 const totalQR = Number(quantity) * 2;
-
-/* batch insert for performance */
 
 const values = [];
 const params = [];
@@ -177,14 +176,14 @@ for(let i=0;i<totalQR;i++){
 const id = uuidv4();
 const code = uuidv4();
 
-params.push(`($${i*2+1},$${i*2+2},'inactive')`);
+params.push(`($${i*3+1},$${i*3+2},'inactive',$${i*3+3})`);
 
-values.push(id,code);
+values.push(id,code,orderId);
 
 }
 
 await pool.query(
-`INSERT INTO qr_tags (id,qr_code,status)
+`INSERT INTO qr_tags (id,qr_code,status,batch_id)
 VALUES ${params.join(",")}`,
 values
 );
@@ -229,7 +228,7 @@ res.status(500).json({message:"Failed to fetch QR orders"});
 });
 
 /* =================
-INVENTORY
+QR INVENTORY
 ================= */
 
 router.get("/inventory", async (req,res)=>{
@@ -243,10 +242,10 @@ q.qr_code,
 q.status,
 q.activated_at,
 q.expires_at,
-b.batch_name
+o.batch_name
 FROM qr_tags q
-LEFT JOIN qr_batches b
-ON q.batch_id = b.id
+LEFT JOIN qr_orders o
+ON q.batch_id = o.id
 ORDER BY q.created_at DESC
 LIMIT 1000
 `);
@@ -257,6 +256,68 @@ res.json(result.rows);
 
 console.error(err);
 res.status(500).json({message:"Failed to fetch inventory"});
+
+}
+
+});
+
+/* =================
+DOWNLOAD QR PDF
+================= */
+
+router.get("/order-qrs/:id", async (req,res)=>{
+
+try{
+
+const orderId = req.params.id;
+
+const result = await pool.query(`
+SELECT qr_code
+FROM qr_tags
+WHERE batch_id=$1
+`,[orderId]);
+
+if(result.rows.length===0){
+return res.status(404).json({message:"No QR codes found"});
+}
+
+res.setHeader("Content-Type","application/pdf");
+res.setHeader(
+"Content-Disposition",
+`attachment; filename=qr-order-${orderId}.pdf`
+);
+
+const doc = new PDFDocument({margin:30});
+
+doc.pipe(res);
+
+let x = 30;
+let y = 30;
+
+for(const row of result.rows){
+
+const dataURL = await QRCode.toDataURL(row.qr_code);
+
+const base64 = dataURL.replace(/^data:image\/png;base64,/,"");
+const buffer = Buffer.from(base64,"base64");
+
+doc.image(buffer,x,y,{width:100});
+
+x += 120;
+
+if(x > 450){
+x = 30;
+y += 120;
+}
+
+}
+
+doc.end();
+
+}catch(err){
+
+console.error(err);
+res.status(500).json({message:"QR download failed"});
 
 }
 
