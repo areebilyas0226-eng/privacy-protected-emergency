@@ -183,7 +183,7 @@ values.push(id,code,orderId);
 }
 
 await pool.query(
-`INSERT INTO qr_tags (id,qr_code,status,batch_id)
+`INSERT INTO qr_tags (id,qr_code,status,order_id)
 VALUES ${params.join(",")}`,
 values
 );
@@ -245,7 +245,7 @@ q.expires_at,
 o.batch_name
 FROM qr_tags q
 LEFT JOIN qr_orders o
-ON q.batch_id = o.id
+ON q.order_id = o.id
 ORDER BY q.created_at DESC
 LIMIT 1000
 `);
@@ -274,7 +274,7 @@ const orderId = req.params.id;
 const result = await pool.query(`
 SELECT qr_code
 FROM qr_tags
-WHERE batch_id=$1
+WHERE order_id=$1
 `,[orderId]);
 
 if(result.rows.length===0){
