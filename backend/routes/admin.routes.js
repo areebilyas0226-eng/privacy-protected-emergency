@@ -11,12 +11,9 @@ export default function adminRoutes(pool){
 
 const router = express.Router();
 
-/* =================
-ADMIN LOGIN
-================= */
+/* ================= ADMIN LOGIN ================= */
 
 router.post("/login", async (req,res)=>{
-
 try{
 
 const {email,password} = req.body;
@@ -53,33 +50,22 @@ sameSite:"none"
 res.json({message:"login_success"});
 
 }catch(err){
-
 console.error(err);
 res.status(500).json({message:"Login failed"});
 }
-
 });
 
-/* =================
-VERIFY SESSION
-================= */
+/* ================= VERIFY SESSION ================= */
 
 router.get("/me",adminAuth,(req,res)=>{
 res.json({authenticated:true,role:"admin"});
 });
 
-/* =================
-PROTECTED ROUTES
-================= */
-
 router.use(adminAuth);
 
-/* =====================================================
-DASHBOARD ORDERS
-===================================================== */
+/* ================= DASHBOARD ORDERS ================= */
 
 router.post("/orders", async (req,res)=>{
-
 try{
 
 const {customer_name,mobile,quantity} = req.body;
@@ -100,19 +86,14 @@ VALUES ($1,$2,$3,$4,0,'pending')`,
 res.json({message:"order_created"});
 
 }catch(err){
-
 console.error(err);
 res.status(500).json({message:"Order creation failed"});
 }
-
 });
 
-/* =====================================================
-DASHBOARD ORDER HISTORY
-===================================================== */
+/* ================= ORDER HISTORY ================= */
 
 router.get("/orders", async (req,res)=>{
-
 try{
 
 const result = await pool.query(`
@@ -124,16 +105,12 @@ ORDER BY created_at DESC
 res.json(result.rows);
 
 }catch(err){
-
 console.error(err);
 res.status(500).json({message:"Failed to fetch orders"});
 }
-
 });
 
-/* =====================================================
-QR ORDERS SYSTEM
-===================================================== */
+/* ================= CREATE QR ORDER ================= */
 
 router.post("/qr-orders", async (req,res)=>{
 
@@ -160,14 +137,16 @@ VALUES ($1,$2,$3,$4,'pending')`,
 
 const totalQR = Number(quantity) * 2;
 
-/* SAFE QR GENERATION */
+/* ===== QR GENERATION ===== */
 
 for(let i=0;i<totalQR;i++){
 
 await client.query(
 `
-INSERT INTO qr_tags (id, qr_code, status, order_id)
-VALUES ($1,$2,'inactive',$3)
+INSERT INTO qr_tags
+(id, qr_code, status, order_id, type)
+VALUES
+($1,$2,'inactive',$3,'yearly')
 `,
 [
 uuidv4(),
@@ -204,12 +183,9 @@ client.release();
 
 });
 
-/* =================
-QR ORDER HISTORY
-================= */
+/* ================= QR ORDER HISTORY ================= */
 
 router.get("/qr-orders", async (req,res)=>{
-
 try{
 
 const result = await pool.query(`
@@ -221,19 +197,14 @@ ORDER BY created_at DESC
 res.json(result.rows);
 
 }catch(err){
-
 console.error(err);
 res.status(500).json({message:"Failed to fetch QR orders"});
 }
-
 });
 
-/* =================
-QR INVENTORY
-================= */
+/* ================= QR INVENTORY ================= */
 
 router.get("/inventory", async (req,res)=>{
-
 try{
 
 const result = await pool.query(`
@@ -243,6 +214,7 @@ q.qr_code,
 q.status,
 q.activated_at,
 q.expires_at,
+q.type,
 o.batch_name
 FROM qr_tags q
 LEFT JOIN qr_orders o
@@ -254,19 +226,14 @@ LIMIT 1000
 res.json(result.rows);
 
 }catch(err){
-
 console.error(err);
 res.status(500).json({message:"Failed to fetch inventory"});
 }
-
 });
 
-/* =================
-DOWNLOAD QR PDF
-================= */
+/* ================= DOWNLOAD QR PDF ================= */
 
 router.get("/order-qrs/:id", async (req,res)=>{
-
 try{
 
 const orderId = req.params.id;
@@ -330,12 +297,9 @@ error:err.message
 
 });
 
-/* =================
-EXTEND SUBSCRIPTION
-================= */
+/* ================= EXTEND SUBSCRIPTION ================= */
 
 router.post("/extend/:id", async (req,res)=>{
-
 try{
 
 const {months} = req.body;
@@ -357,11 +321,9 @@ WHERE id=$2
 res.json({message:"subscription_extended"});
 
 }catch(err){
-
 console.error(err);
 res.status(500).json({message:"Extension failed"});
 }
-
 });
 
 return router;
