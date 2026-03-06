@@ -3,7 +3,7 @@ import DashboardLayout from "../../components/layout/DashboardLayout";
 
 const API_BASE = import.meta.env.VITE_API_URL;
 
-export default function Orders() {
+export default function Orders(){
 
 const [form,setForm] = useState({
 batch_name:"",
@@ -14,7 +14,7 @@ quantity:""
 const [orders,setOrders] = useState([]);
 const [loading,setLoading] = useState(false);
 
-/* ================= FETCH ORDERS ================= */
+/* ================= FETCH QR ORDERS ================= */
 
 useEffect(()=>{
 fetchOrders();
@@ -24,11 +24,11 @@ async function fetchOrders(){
 
 try{
 
-const res = await fetch(`${API_BASE}/api/admin/orders`,{
+const res = await fetch(`${API_BASE}/api/admin/qr-orders`,{
 credentials:"include"
 });
 
-if(!res.ok) throw new Error("Fetch orders failed");
+if(!res.ok) throw new Error("Fetch failed");
 
 const data = await res.json();
 
@@ -43,7 +43,7 @@ setOrders([]);
 
 }
 
-/* ================= CREATE ORDER ================= */
+/* ================= CREATE QR ORDER ================= */
 
 async function handleCreateOrder(){
 
@@ -56,25 +56,21 @@ try{
 
 setLoading(true);
 
-const res = await fetch(`${API_BASE}/api/admin/orders`,{
+const res = await fetch(`${API_BASE}/api/admin/qr-orders`,{
 method:"POST",
 headers:{ "Content-Type":"application/json" },
 credentials:"include",
-
-/* IMPORTANT: backend expects these fields */
-
 body:JSON.stringify({
-customer_name:form.batch_name,
-mobile:form.agent_name,
+batch_name:form.batch_name,
+agent_name:form.agent_name,
 quantity:Number(form.quantity)
 })
-
 });
 
 const data = await res.json();
 
 if(!res.ok){
-alert(data.message || "Order creation failed");
+alert(data.message || "QR order creation failed");
 return;
 }
 
@@ -122,7 +118,7 @@ return(
 
 <div style={styles.card}>
 
-<h2>Create Order</h2>
+<h2>Create QR Order</h2>
 
 <div style={styles.grid}>
 
@@ -160,7 +156,7 @@ disabled={loading}
 
 <div style={styles.card}>
 
-<h2>Order History</h2>
+<h2>QR Order History</h2>
 
 <table style={styles.table}>
 
@@ -180,11 +176,11 @@ disabled={loading}
 
 <tbody>
 
-{orders.length===0 && (
+{orders.length===0 &&(
 
 <tr>
 <td colSpan="7" style={{textAlign:"center",padding:"20px"}}>
-No orders found
+No QR orders found
 </td>
 </tr>
 
@@ -196,11 +192,11 @@ No orders found
 
 <td>{index+1}</td>
 
-<td>{o.batch_name || o.customer_name || "-"}</td>
+<td>{o.batch_name}</td>
 
-<td>{o.agent_name || o.mobile || "-"}</td>
+<td>{o.agent_name}</td>
 
-<td>{o.quantity_ordered || o.quantity}</td>
+<td>{o.quantity}</td>
 
 <td>{o.status}</td>
 
