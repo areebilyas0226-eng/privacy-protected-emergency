@@ -56,7 +56,6 @@ res.json({message:"login_success"});
 
 console.error(err);
 res.status(500).json({message:"Login failed"});
-
 }
 
 });
@@ -104,7 +103,6 @@ res.json({message:"order_created"});
 
 console.error(err);
 res.status(500).json({message:"Order creation failed"});
-
 }
 
 });
@@ -156,29 +154,27 @@ VALUES ($1,$2,$3,$4,'pending')`,
 [orderId,batch_name,agent_name,quantity]
 );
 
-/* Generate QR codes */
+/* ======================
+SAFE QR GENERATION
+====================== */
 
 const totalQR = Number(quantity) * 2;
 
-const values = [];
-const params = [];
-
 for(let i=0;i<totalQR;i++){
 
-const id = uuidv4();
-const code = uuidv4();
-
-params.push(`($${i*3+1},$${i*3+2},'inactive',$${i*3+3})`);
-
-values.push(id,code,orderId);
+await pool.query(
+`
+INSERT INTO qr_tags (id, qr_code, status, order_id)
+VALUES ($1,$2,'inactive',$3)
+`,
+[
+uuidv4(),
+uuidv4(),
+orderId
+]
+);
 
 }
-
-await pool.query(
-`INSERT INTO qr_tags (id,qr_code,status,order_id)
-VALUES ${params.join(",")}`,
-values
-);
 
 res.json({
 message:"qr_order_created",
@@ -187,8 +183,12 @@ generated_qr:totalQR
 
 }catch(err){
 
-console.error(err);
-res.status(500).json({message:"QR order failed"});
+console.error("QR CREATE ERROR:",err);
+
+res.status(500).json({
+message:"QR order failed",
+error:err.message
+});
 }
 
 });
@@ -283,8 +283,6 @@ let y = 30;
 
 for(const row of result.rows){
 
-if(!row.qr_code) continue;
-
 const dataURL = await QRCode.toDataURL(String(row.qr_code));
 
 const base64 = dataURL.split(",")[1];
@@ -311,7 +309,6 @@ res.status(500).json({
 message:"QR download failed",
 error:err.message
 });
-
 }
 
 });
@@ -332,9 +329,11 @@ return res.status(400).json({message:"Months required"});
 }
 
 await pool.query(
-`UPDATE qr_tags
+`
+UPDATE qr_tags
 SET expires_at = expires_at + ($1 || ' months')::interval
-WHERE id=$2`,
+WHERE id=$2
+`,
 [months,id]
 );
 
