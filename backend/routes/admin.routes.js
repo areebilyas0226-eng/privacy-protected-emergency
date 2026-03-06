@@ -147,7 +147,7 @@ await client.query(
 INSERT INTO qr_tags
 (id, qr_code, status, order_id, type, profiles_id)
 VALUES
-($1,$2,'inactive',$3,'emergency',NULL)
+($1,$2,'inactive',$3,'qr',NULL)
 `,
 [
 qrId,
