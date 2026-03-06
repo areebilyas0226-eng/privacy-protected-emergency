@@ -145,9 +145,9 @@ const qrCode = uuidv4();
 await client.query(
 `
 INSERT INTO qr_tags
-(id, qr_code, status, order_id, type)
+(id, qr_code, status, order_id, type, profiles_id)
 VALUES
-($1,$2,'inactive',$3,'emergency')
+($1,$2,'inactive',$3,'emergency',NULL)
 `,
 [
 qrId,
