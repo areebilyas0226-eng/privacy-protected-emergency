@@ -84,11 +84,9 @@ headers:{
 "Content-Type":"application/json"
 },
 body:JSON.stringify({
-
 batch_name:customer_name,
 agent_name:mobile,
 quantity:Number(quantity)
-
 })
 });
 
@@ -117,6 +115,15 @@ alert("Order creation failed");
 setSubmitting(false);
 
 }
+
+}
+
+/* ================= DOWNLOAD QR ================= */
+
+function downloadOrder(orderId){
+
+const url = `${API_BASE}/api/admin/order-qrs/${orderId}`;
+window.open(url,"_blank");
 
 }
 
@@ -234,11 +241,11 @@ Analytics Graph Coming Soon
 
 </div>
 
-{/* ================= RECENT ORDERS ================= */}
+{/* ================= ORDER HISTORY ================= */}
 
 <div className="orders-section">
 
-<h2>Recent Orders</h2>
+<h2>Order History</h2>
 
 <table className="orders-table">
 
@@ -246,12 +253,12 @@ Analytics Graph Coming Soon
 
 <tr>
 <th>S.No</th>
-<th>Name</th>
-<th>Mobile</th>
-<th>Date</th>
-<th>Ordered</th>
-<th>Fulfilled</th>
+<th>Batch</th>
+<th>Agent</th>
+<th>Qty</th>
 <th>Status</th>
+<th>Created</th>
+<th>Download</th>
 </tr>
 
 </thead>
@@ -274,20 +281,29 @@ No Orders Found
 
 <td>{index+1}</td>
 
-<td>{o.batch_name}</td>
+<td>{o.batch_name || o.customer_name || "-"}</td>
 
-<td>{o.agent_name}</td>
+<td>{o.agent_name || o.mobile || "-"}</td>
+
+<td>{o.quantity_ordered}</td>
+
+<td className={`status-${o.status}`}>
+{o.status}
+</td>
 
 <td>
 {new Date(o.created_at).toLocaleDateString()}
 </td>
 
-<td>{o.quantity_ordered}</td>
+<td>
 
-<td>{o.quantity_fulfilled}</td>
+<button
+className="download-btn"
+onClick={()=>downloadOrder(o.id)}
+>
+Download
+</button>
 
-<td className={`status-${o.status}`}>
-{o.status}
 </td>
 
 </tr>
