@@ -10,15 +10,6 @@ export default function Dashboard(){
 const [orders,setOrders] = useState([]);
 const [inventory,setInventory] = useState([]);
 const [loading,setLoading] = useState(true);
-const [submitting,setSubmitting] = useState(false);
-
-const [orderForm,setOrderForm] = useState({
-customer_name:"",
-mobile:"",
-quantity:""
-});
-
-/* ================= LOAD DATA ================= */
 
 const loadData = useCallback(async()=>{
 
@@ -27,10 +18,8 @@ try{
 setLoading(true);
 
 const [ordersRes,inventoryRes] = await Promise.all([
-
 fetch(buildUrl("/admin/orders"),{credentials:"include"}),
 fetch(buildUrl("/admin/inventory"),{credentials:"include"})
-
 ]);
 
 if(ordersRes.status===401){
@@ -60,73 +49,6 @@ useEffect(()=>{
 loadData();
 },[loadData]);
 
-/* ================= CREATE ORDER ================= */
-
-async function handleCreateOrder(){
-
-const {customer_name,mobile,quantity} = orderForm;
-
-if(!customer_name || !mobile || !quantity){
-alert("All fields required");
-return;
-}
-
-if(submitting) return;
-
-try{
-
-setSubmitting(true);
-
-const res = await fetch(buildUrl("/admin/orders"),{
-method:"POST",
-credentials:"include",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify({
-batch_name:customer_name,
-agent_name:mobile,
-quantity:Number(quantity)
-})
-});
-
-const data = await res.json();
-
-if(!res.ok){
-alert(data.message || "Order creation failed");
-return;
-}
-
-setOrderForm({
-customer_name:"",
-mobile:"",
-quantity:""
-});
-
-await loadData();
-
-}catch(err){
-
-console.error(err);
-alert("Order creation failed");
-
-}finally{
-
-setSubmitting(false);
-
-}
-
-}
-
-/* ================= DOWNLOAD QR ================= */
-
-function downloadOrder(orderId){
-
-const url = `${API_BASE}/api/admin/order-qrs/${orderId}`;
-window.open(url,"_blank");
-
-}
-
 /* ================= STATS ================= */
 
 const total = inventory.length;
@@ -149,9 +71,7 @@ return(
 <DashboardLayout>
 
 <div className="dashboard-container">
-
 <h2>Loading Dashboard...</h2>
-
 </div>
 
 </DashboardLayout>
@@ -170,7 +90,7 @@ return(
 Operational Overview
 </h1>
 
-{/* ================= STATS ================= */}
+{/* STATS */}
 
 <div className="stats-grid">
 
@@ -181,51 +101,18 @@ Operational Overview
 
 </div>
 
-{/* ================= ORDER SECTION ================= */}
+{/* ACTION AREA */}
 
 <div className="dashboard-grid">
 
 <div className="order-card">
 
-<h2>Create Tag Order</h2>
+<h2>Tag System Status</h2>
 
-<input
-className="form-input"
-placeholder="Customer Name"
-value={orderForm.customer_name}
-onChange={(e)=>
-setOrderForm({...orderForm,customer_name:e.target.value})
-}
-/>
-
-<input
-className="form-input"
-placeholder="Mobile"
-value={orderForm.mobile}
-onChange={(e)=>
-setOrderForm({...orderForm,mobile:e.target.value})
-}
-/>
-
-<input
-className="form-input"
-type="number"
-placeholder="Quantity"
-value={orderForm.quantity}
-onChange={(e)=>
-setOrderForm({...orderForm,quantity:e.target.value})
-}
-/>
-
-<button
-className="primary-btn"
-onClick={handleCreateOrder}
-disabled={submitting}
->
-
-{submitting ? "Creating..." : "Create Order"}
-
-</button>
+<p style={{color:"white",opacity:.8}}>
+QR tags are managed through the Orders page.
+Use Orders to generate batches and download QR codes.
+</p>
 
 </div>
 
@@ -241,16 +128,15 @@ Analytics Graph Coming Soon
 
 </div>
 
-{/* ================= ORDER HISTORY ================= */}
+{/* RECENT ORDERS */}
 
 <div className="orders-section">
 
-<h2>Order History</h2>
+<h2>Recent Orders</h2>
 
 <table className="orders-table">
 
 <thead>
-
 <tr>
 <th>S.No</th>
 <th>Batch</th>
@@ -258,9 +144,7 @@ Analytics Graph Coming Soon
 <th>Qty</th>
 <th>Status</th>
 <th>Created</th>
-<th>Download</th>
 </tr>
-
 </thead>
 
 <tbody>
@@ -268,22 +152,22 @@ Analytics Graph Coming Soon
 {orders.length===0 &&(
 
 <tr>
-<td colSpan="7">
+<td colSpan="6">
 No Orders Found
 </td>
 </tr>
 
 )}
 
-{orders.map((o,index)=>(
+{orders.slice(0,5).map((o,index)=>(
 
 <tr key={o.id}>
 
 <td>{index+1}</td>
 
-<td>{o.batch_name || o.customer_name || "-"}</td>
+<td>{o.batch_name || "-"}</td>
 
-<td>{o.agent_name || o.mobile || "-"}</td>
+<td>{o.agent_name || "-"}</td>
 
 <td>{o.quantity_ordered}</td>
 
@@ -293,17 +177,6 @@ No Orders Found
 
 <td>
 {new Date(o.created_at).toLocaleDateString()}
-</td>
-
-<td>
-
-<button
-className="download-btn"
-onClick={()=>downloadOrder(o.id)}
->
-Download
-</button>
-
 </td>
 
 </tr>
@@ -324,7 +197,7 @@ Download
 
 }
 
-/* ================= STAT CARD ================= */
+/* STAT CARD */
 
 function StatCard({title,value}){
 
@@ -333,7 +206,6 @@ return(
 <div className="stat-card">
 
 <h4>{title}</h4>
-
 <h2>{value}</h2>
 
 </div>

@@ -1,212 +1,212 @@
-import { useState, useEffect } from "react";
+import { useState,useEffect } from "react";
 import DashboardLayout from "../../components/layout/DashboardLayout";
 
 const API_BASE = import.meta.env.VITE_API_URL;
 
-export default function Orders() {
-  const [form, setForm] = useState({
-    batch_name: "",
-    agent_name: "",
-    quantity: "",
-  });
+export default function Orders(){
 
-  const [orders, setOrders] = useState([]);
+const [form,setForm] = useState({
+batch_name:"",
+agent_name:"",
+quantity:""
+});
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
+const [orders,setOrders] = useState([]);
 
-  async function fetchOrders() {
-    try {
-      const res = await fetch(`${API_BASE}/api/admin/orders`, {
-        credentials: "include",
-      });
+useEffect(()=>{
+fetchOrders();
+},[]);
 
-      if (!res.ok) throw new Error("Fetch failed");
+async function fetchOrders(){
 
-      const data = await res.json();
-      setOrders(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error(err);
-      setOrders([]);
-    }
-  }
+try{
 
-  async function handleCreateOrder() {
-    try {
-      await fetch(`${API_BASE}/api/admin/orders`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          ...form,
-          quantity: Number(form.quantity),
-        }),
-      });
+const res = await fetch(`${API_BASE}/api/admin/orders`,{
+credentials:"include"
+});
 
-      setForm({ batch_name: "", agent_name: "", quantity: "" });
-      fetchOrders();
-    } catch (err) {
-      console.error(err);
-    }
-  }
+const data = await res.json();
 
-  return (
-    <DashboardLayout>
-      <div style={styles.wrapper}>
-        
-        <div style={styles.card}>
-          <h2 style={styles.heading}>Create Order</h2>
+setOrders(Array.isArray(data)?data:[]);
 
-          <div style={styles.formGrid}>
-            <input
-              placeholder="Batch Name"
-              style={styles.input}
-              value={form.batch_name}
-              onChange={(e) =>
-                setForm({ ...form, batch_name: e.target.value })
-              }
-            />
+}catch(err){
 
-            <input
-              placeholder="Agent Name"
-              style={styles.input}
-              value={form.agent_name}
-              onChange={(e) =>
-                setForm({ ...form, agent_name: e.target.value })
-              }
-            />
+console.error(err);
 
-            <input
-              type="number"
-              placeholder="Quantity"
-              style={styles.input}
-              value={form.quantity}
-              onChange={(e) =>
-                setForm({ ...form, quantity: e.target.value })
-              }
-            />
-          </div>
-
-          <button style={styles.button} onClick={handleCreateOrder}>
-            Create Order
-          </button>
-        </div>
-
-        <div style={styles.card}>
-          <h2 style={styles.heading}>Order History</h2>
-
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>S.No</th>
-                <th style={styles.th}>Batch</th>
-                <th style={styles.th}>Agent</th>
-                <th style={styles.th}>Qty</th>
-                <th style={styles.th}>Status</th>
-                <th style={styles.th}>Created</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {orders.length === 0 ? (
-                <tr>
-                  <td colSpan="6" style={styles.empty}>
-                    No orders found
-                  </td>
-                </tr>
-              ) : (
-                orders.map((order, index) => (
-                  <tr key={order?.id || index}>
-                    <td style={styles.td}>{index + 1}</td>
-                    <td style={styles.td}>{order?.batch_name || "-"}</td>
-                    <td style={styles.td}>{order?.agent_name || "-"}</td>
-                    <td style={styles.td}>{order?.quantity_ordered || "-"}</td>
-                    <td style={styles.td}>{order?.status || "-"}</td>
-                    <td style={styles.td}>
-                      {order?.created_at
-                        ? new Date(order.created_at).toLocaleDateString()
-                        : "-"}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-
-        </div>
-
-      </div>
-    </DashboardLayout>
-  );
 }
 
-const styles = {
-  wrapper: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "30px",
-  },
+}
 
-  card: {
-    background: "transparent",
-    padding: "25px",
-    borderRadius: "14px",
-    backdropFilter: "blur(10px)",
-    border: "1px solid rgba(255,255,255,0.2)",
-  },
+async function handleCreateOrder(){
 
-  heading: {
-    marginBottom: "20px",
-    color: "#000",
-  },
+if(!form.batch_name || !form.agent_name || !form.quantity){
+alert("All fields required");
+return;
+}
 
-  formGrid: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr 1fr",
-    gap: "15px",
-    marginBottom: "15px",
-  },
+try{
 
-  input: {
-    padding: "10px",
-    borderRadius: "8px",
-    border: "1px solid #ccc",
-    background: "rgba(255,255,255,0.6)",
-    color: "#000",
-  },
+await fetch(`${API_BASE}/api/admin/orders`,{
+method:"POST",
+headers:{ "Content-Type":"application/json" },
+credentials:"include",
+body:JSON.stringify({
+batch_name:form.batch_name,
+agent_name:form.agent_name,
+quantity:Number(form.quantity)
+})
+});
 
-  button: {
-    padding: "10px 20px",
-    borderRadius: "8px",
-    border: "none",
-    background: "#6366f1",
-    color: "#fff",
-    cursor: "pointer",
-  },
+setForm({
+batch_name:"",
+agent_name:"",
+quantity:""
+});
 
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-    marginTop: "10px",
-    color: "#000",
-  },
+fetchOrders();
 
-  th: {
-    textAlign: "left",
-    padding: "12px",
-    borderBottom: "2px solid rgba(0,0,0,0.2)",
-    fontWeight: "600",
-  },
+}catch(err){
 
-  td: {
-    padding: "12px",
-    borderBottom: "1px solid rgba(0,0,0,0.1)",
-  },
+console.error(err);
 
-  empty: {
-    textAlign: "center",
-    padding: "20px",
-    color: "#000",
-  },
+}
+
+}
+
+function downloadQR(orderId){
+
+window.open(
+`${API_BASE}/api/admin/order-qrs/${orderId}`,
+"_blank"
+);
+
+}
+
+return(
+
+<DashboardLayout>
+
+<div style={styles.wrapper}>
+
+<div style={styles.card}>
+
+<h2>Create Order</h2>
+
+<div style={styles.grid}>
+
+<input
+placeholder="Batch Name"
+value={form.batch_name}
+onChange={e=>setForm({...form,batch_name:e.target.value})}
+/>
+
+<input
+placeholder="Agent Name"
+value={form.agent_name}
+onChange={e=>setForm({...form,agent_name:e.target.value})}
+/>
+
+<input
+type="number"
+placeholder="Quantity"
+value={form.quantity}
+onChange={e=>setForm({...form,quantity:e.target.value})}
+/>
+
+</div>
+
+<button onClick={handleCreateOrder}>
+Create Order
+</button>
+
+</div>
+
+<div style={styles.card}>
+
+<h2>Order History</h2>
+
+<table style={styles.table}>
+
+<thead>
+
+<tr>
+<th>S.No</th>
+<th>Batch</th>
+<th>Agent</th>
+<th>Qty</th>
+<th>Status</th>
+<th>Created</th>
+<th>Download</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+{orders.map((o,index)=>(
+
+<tr key={o.id}>
+
+<td>{index+1}</td>
+<td>{o.batch_name}</td>
+<td>{o.agent_name}</td>
+<td>{o.quantity_ordered}</td>
+<td>{o.status}</td>
+<td>{new Date(o.created_at).toLocaleDateString()}</td>
+
+<td>
+
+<button
+onClick={()=>downloadQR(o.id)}
+>
+Download
+</button>
+
+</td>
+
+</tr>
+
+))}
+
+</tbody>
+
+</table>
+
+</div>
+
+</div>
+
+</DashboardLayout>
+
+);
+
+}
+
+const styles={
+
+wrapper:{
+display:"flex",
+flexDirection:"column",
+gap:"30px"
+},
+
+card:{
+padding:"25px",
+borderRadius:"14px",
+background:"rgba(255,255,255,0.15)",
+backdropFilter:"blur(12px)"
+},
+
+grid:{
+display:"grid",
+gridTemplateColumns:"1fr 1fr 1fr",
+gap:"10px",
+marginBottom:"15px"
+},
+
+table:{
+width:"100%",
+borderCollapse:"collapse"
+}
+
 };
