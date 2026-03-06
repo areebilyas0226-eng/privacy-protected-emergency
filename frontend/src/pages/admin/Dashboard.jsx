@@ -7,12 +7,12 @@ const buildUrl = (path)=>`${API_BASE}/api${path}`;
 
 export default function Dashboard(){
 
-const [orders,setOrders]=useState([]);
-const [inventory,setInventory]=useState([]);
-const [loading,setLoading]=useState(true);
-const [submitting,setSubmitting]=useState(false);
+const [orders,setOrders] = useState([]);
+const [inventory,setInventory] = useState([]);
+const [loading,setLoading] = useState(true);
+const [submitting,setSubmitting] = useState(false);
 
-const [orderForm,setOrderForm]=useState({
+const [orderForm,setOrderForm] = useState({
 customer_name:"",
 mobile:"",
 quantity:""
@@ -132,7 +132,7 @@ inventory.filter(i=>i.status==="inactive").length;
 
 const expired =
 inventory.filter(i=>
-i.expires_at && new Date(i.expires_at)<new Date()
+i.expires_at && new Date(i.expires_at) < new Date()
 ).length;
 
 if(loading){
@@ -163,7 +163,7 @@ return(
 Operational Overview
 </h1>
 
-{/* STATS */}
+{/* ================= STATS ================= */}
 
 <div className="stats-grid">
 
@@ -174,7 +174,7 @@ Operational Overview
 
 </div>
 
-{/* ACTION AREA */}
+{/* ================= ORDER SECTION ================= */}
 
 <div className="dashboard-grid">
 
@@ -227,16 +227,14 @@ disabled={submitting}
 <h2>QR Activation Graph</h2>
 
 <div className="graph-placeholder">
-
 Analytics Graph Coming Soon
-
 </div>
 
 </div>
 
 </div>
 
-{/* RECENT ORDERS */}
+{/* ================= RECENT ORDERS ================= */}
 
 <div className="orders-section">
 
@@ -263,11 +261,9 @@ Analytics Graph Coming Soon
 {orders.length===0 &&(
 
 <tr>
-
 <td colSpan="7">
 No Orders Found
 </td>
-
 </tr>
 
 )}
