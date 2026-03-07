@@ -83,34 +83,33 @@ return res.status(400).json({message:"Invalid QR type"});
 
 await client.query("BEGIN");
 
-const orderId = uuidv4();
+const batchId = uuidv4();
 
-/* INSERT BATCH */
+/* INSERT INTO qr_batches */
 
 await client.query(
 `INSERT INTO qr_batches
 (id,batch_name,agent_name,quantity,type,status)
 VALUES ($1,$2,$3,$4,$5,'pending')`,
-[orderId,batch_name,agent_name,quantity,type]
+[batchId,batch_name,agent_name,quantity,type]
 );
 
-const totalQR = Number(quantity) * 2;
-
 /* GENERATE QR TAGS */
+
+const totalQR = Number(quantity) * 2;
 
 for(let i=0;i<totalQR;i++){
 
 await client.query(
 `
 INSERT INTO qr_tags
-(id, qr_code, status, order_id, type)
-VALUES
-($1,$2,'inactive',$3,$4)
+(id,qr_code,status,order_id,type)
+VALUES ($1,$2,'inactive',$3,$4)
 `,
 [
 uuidv4(),
 uuidv4(),
-orderId,
+batchId,
 type
 ]
 );
