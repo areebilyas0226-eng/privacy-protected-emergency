@@ -134,6 +134,32 @@ client.release();
 
 });
 
+/* ================= QR ORDER HISTORY ================= */
+
+router.get("/qr-orders", async (req,res)=>{
+
+try{
+
+const result = await pool.query(`
+SELECT *
+FROM qr_orders
+ORDER BY created_at DESC
+`);
+
+res.json(result.rows);
+
+}catch(err){
+
+console.error(err);
+
+res.status(500).json({
+message:"Failed to fetch QR orders"
+});
+
+}
+
+});
+
 /* ================= INVENTORY ================= */
 
 router.get("/inventory", async (req,res)=>{
