@@ -85,13 +85,19 @@ await client.query("BEGIN");
 
 const batchId = uuidv4();
 
-/* INSERT BATCH (NO TYPE COLUMN HERE) */
+/* INSERT BATCH (MATCHES DATABASE SCHEMA) */
 
 await client.query(
 `INSERT INTO qr_batches
-(id,batch_name,agent_name,quantity,status)
-VALUES ($1,$2,$3,$4,'pending')`,
-[batchId,batch_name,agent_name,quantity]
+(id,batch_name,agent_name,quantity,created_by)
+VALUES ($1,$2,$3,$4,$5)`,
+[
+batchId,
+batch_name,
+agent_name,
+quantity,
+"admin"
+]
 );
 
 /* GENERATE QR TAGS */
@@ -149,7 +155,12 @@ router.get("/qr-orders", async (req,res)=>{
 try{
 
 const result = await pool.query(`
-SELECT *
+SELECT
+id,
+batch_name,
+agent_name,
+quantity,
+created_at
 FROM qr_batches
 ORDER BY created_at DESC
 `);
