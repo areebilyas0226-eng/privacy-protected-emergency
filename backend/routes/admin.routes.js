@@ -97,7 +97,7 @@ await client.query(
 INSERT INTO qr_tags
 (id, qr_code, status, order_id, type)
 VALUES
-($1,$2,'inactive',$3,'emergency')
+($1,$2,'inactive',$3,'qr')
 `,
 [
 uuidv4(),
@@ -119,7 +119,7 @@ generated_qr:totalQR
 
 await client.query("ROLLBACK");
 
-console.error(err);
+console.error("QR CREATE ERROR:",err);
 
 res.status(500).json({
 message:"QR order failed",
