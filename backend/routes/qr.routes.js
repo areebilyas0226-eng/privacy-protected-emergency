@@ -4,270 +4,86 @@ export default function qrRoutes(pool){
 
 const router = express.Router();
 
-/* =========================
-UTILITIES
-========================= */
+/* ================= ACTIVATE QR ================= */
 
-function normalize(code){
-return code?.trim() || null;
-}
+router.post("/:code/activate", async(req,res)=>{
 
-function getClientIP(req){
-return (
-req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
-req.socket?.remoteAddress ||
-req.ip ||
-"unknown"
-);
-}
-
-/* =========================
-CREATE QR
-========================= */
-
-router.post("/", async(req,res)=>{
-
-let { qr_code,type } = req.body;
-
-if(!qr_code || !type){
-return res.status(400).json({message:"qr_code and type required"});
-}
-
-qr_code = normalize(qr_code);
+const code=req.params.code;
 
 try{
 
-const result = await pool.query(
-
-`INSERT INTO qr_tags (qr_code,type,status)
-VALUES ($1,$2,'inactive')
-RETURNING id,qr_code,type,status`,
-
-[qr_code,type]
-
-);
-
-return res.status(201).json(result.rows[0]);
-
-}catch(err){
-
-if(err.code==="23505"){
-return res.status(400).json({message:"QR already exists"});
-}
-
-console.error(err);
-return res.status(500).json({message:"Server error"});
-
-}
-
-});
-
-/* =========================
-QR STATUS
-========================= */
-
-router.get("/:code", async(req,res)=>{
-
-const code = normalize(req.params.code);
-
-if(!code){
-return res.status(400).json({message:"Invalid QR"});
-}
-
-try{
-
-const result = await pool.query(
-
-`SELECT
-id,
-qr_code,
-type,
-status,
-profiles_id,
-activated_at,
-expires_at
-FROM qr_tags
-WHERE qr_code=$1`,
-
+const result=await pool.query(
+`SELECT status FROM qr_tags WHERE qr_code=$1`,
 [code]
-
 );
 
 if(!result.rows.length){
 return res.status(404).json({message:"QR not found"});
 }
 
-return res.json(result.rows[0]);
-
-}catch(err){
-
-console.error(err);
-return res.status(500).json({message:"Server error"});
-
+if(result.rows[0].status==="active"){
+return res.json({message:"already_active"});
 }
 
-});
-
-/* =========================
-ACTIVATE QR
-========================= */
-
-router.post("/:code/activate", async(req,res)=>{
-
-const code = normalize(req.params.code);
-
-if(!code){
-return res.status(400).json({message:"Invalid QR code"});
-}
-
-try{
-
-const existing = await pool.query(
-`SELECT status FROM qr_tags WHERE qr_code=$1`,
-[code]
-);
-
-if(!existing.rows.length){
-return res.status(404).json({message:"QR not found"});
-}
-
-if(existing.rows[0].status==="active"){
-return res.status(400).json({message:"QR already activated"});
-}
-
-/* FIRST ACTIVATION = 5 MONTHS */
-
-const result = await pool.query(
-
-`UPDATE qr_tags
-SET status='active',
+const update=await pool.query(
+`
+UPDATE qr_tags
+SET
+status='active',
 activated_at=NOW(),
 expires_at=NOW()+INTERVAL '5 months'
 WHERE qr_code=$1
-RETURNING *`,
-
+RETURNING *
+`,
 [code]
-
 );
 
-return res.json({
-message:"QR activated successfully",
-qr:result.rows[0]
-});
+res.json(update.rows[0]);
 
 }catch(err){
 
 console.error(err);
-return res.status(500).json({message:"Server error"});
+res.status(500).json({message:"Activation failed"});
 
 }
 
 });
 
-/* =========================
-PUBLIC EMERGENCY RESOLVER
-========================= */
+/* ================= QR STATUS ================= */
 
-router.get("/p/:code", async(req,res)=>{
+router.get("/:code", async(req,res)=>{
 
-const code = normalize(req.params.code);
-
-if(!code){
-return res.status(400).json({message:"Invalid QR code"});
-}
+const code=req.params.code;
 
 try{
 
-const qrResult = await pool.query(
-
-`SELECT id,type
+const result=await pool.query(
+`
+SELECT
+status,
+expires_at
 FROM qr_tags
 WHERE qr_code=$1
-AND status='active'
-AND expires_at > NOW()`,
-
+`,
 [code]
-
 );
 
-if(!qrResult.rows.length){
-return res.status(404).json({message:"QR expired or inactive"});
+if(!result.rows.length){
+return res.status(404).json({message:"QR not found"});
 }
 
-const qr = qrResult.rows[0];
-let profile = null;
+const qr=result.rows[0];
 
-/* VEHICLE PROFILE */
-
-if(qr.type==="vehicle"){
-
-const r = await pool.query(
-
-`SELECT
-vehicle_number,
-model,
-blood_group,
-owner_name,
-phone_number,
-emergency_contact
-FROM vehicle_profiles
-WHERE qr_tag_id=$1`,
-
-[qr.id]
-
-);
-
-profile = r.rows[0];
-
+if(qr.expires_at && new Date(qr.expires_at)<new Date()){
+return res.json({status:"expired"});
 }
 
-/* PET PROFILE */
-
-if(qr.type==="pet"){
-
-const r = await pool.query(
-
-`SELECT
-pet_name,
-breed,
-owner_name,
-phone_number
-FROM pet_profiles
-WHERE qr_tag_id=$1`,
-
-[qr.id]
-
-);
-
-profile = r.rows[0];
-
-}
-
-if(!profile){
-return res.status(404).json({message:"Profile not found"});
-}
-
-/* LOG EMERGENCY VIEW */
-
-pool.query(
-
-`INSERT INTO emergency_logs
-(qr_tag_id,action_type,caller_ip)
-VALUES($1,'view',$2)`,
-
-[qr.id,getClientIP(req)]
-
-).catch(console.error);
-
-return res.json({
-type:qr.type,
-data:profile
-});
+res.json(qr);
 
 }catch(err){
 
 console.error(err);
-return res.status(500).json({message:"Server error"});
+res.status(500).json({message:"Server error"});
 
 }
 

@@ -63,53 +63,6 @@ res.json({authenticated:true,role:"admin"});
 
 router.use(adminAuth);
 
-/* ================= CREATE ORDER ================= */
-
-router.post("/orders", async (req,res)=>{
-try{
-
-const {customer_name,mobile,quantity} = req.body;
-
-if(!customer_name || !mobile || !quantity){
-return res.status(400).json({message:"Missing fields"});
-}
-
-const orderId = uuidv4();
-
-await pool.query(
-`INSERT INTO tag_orders
-(id,customer_name,mobile,quantity_ordered,quantity_fulfilled,status)
-VALUES ($1,$2,$3,$4,0,'pending')`,
-[orderId,customer_name,mobile,quantity]
-);
-
-res.json({message:"order_created"});
-
-}catch(err){
-console.error(err);
-res.status(500).json({message:"Order creation failed"});
-}
-});
-
-/* ================= ORDER HISTORY ================= */
-
-router.get("/orders", async (req,res)=>{
-try{
-
-const result = await pool.query(`
-SELECT *
-FROM tag_orders
-ORDER BY created_at DESC
-`);
-
-res.json(result.rows);
-
-}catch(err){
-console.error(err);
-res.status(500).json({message:"Failed to fetch orders"});
-}
-});
-
 /* ================= CREATE QR ORDER ================= */
 
 router.post("/qr-orders", async (req,res)=>{
@@ -139,19 +92,16 @@ const totalQR = Number(quantity) * 2;
 
 for(let i=0;i<totalQR;i++){
 
-const qrId = uuidv4();
-const qrCode = uuidv4();
-
 await client.query(
 `
 INSERT INTO qr_tags
-(id, qr_code, status, order_id, type, profiles_id)
+(id, qr_code, status, order_id, type)
 VALUES
-($1,$2,'inactive',$3,'qr',NULL)
+($1,$2,'inactive',$3,'emergency')
 `,
 [
-qrId,
-qrCode,
+uuidv4(),
+uuidv4(),
 orderId
 ]
 );
@@ -169,7 +119,7 @@ generated_qr:totalQR
 
 await client.query("ROLLBACK");
 
-console.error("QR CREATE ERROR:",err);
+console.error(err);
 
 res.status(500).json({
 message:"QR order failed",
@@ -184,28 +134,10 @@ client.release();
 
 });
 
-/* ================= QR ORDER HISTORY ================= */
-
-router.get("/qr-orders", async (req,res)=>{
-try{
-
-const result = await pool.query(`
-SELECT *
-FROM qr_orders
-ORDER BY created_at DESC
-`);
-
-res.json(result.rows);
-
-}catch(err){
-console.error(err);
-res.status(500).json({message:"Failed to fetch QR orders"});
-}
-});
-
-/* ================= QR INVENTORY ================= */
+/* ================= INVENTORY ================= */
 
 router.get("/inventory", async (req,res)=>{
+
 try{
 
 const result = await pool.query(`
@@ -214,6 +146,7 @@ q.id,
 q.qr_code,
 q.status,
 q.type,
+q.plan_type,
 q.activated_at,
 q.expires_at,
 o.batch_name
@@ -230,6 +163,7 @@ res.json(result.rows);
 console.error(err);
 res.status(500).json({message:"Failed to fetch inventory"});
 }
+
 });
 
 /* ================= DOWNLOAD QR PDF ================= */
@@ -246,40 +180,37 @@ const result = await pool.query(
 );
 
 if(result.rows.length===0){
-return res.status(404).json({message:"No QR codes found"});
+return res.status(404).json({message:"No QR codes"});
 }
 
 res.setHeader("Content-Type","application/pdf");
-res.setHeader(
-"Content-Disposition",
-`attachment; filename=qr-order-${orderId}.pdf`
-);
 
 const doc = new PDFDocument({margin:30});
 doc.pipe(res);
 
-let x = 30;
-let y = 30;
+let x=30;
+let y=30;
 
 for(const row of result.rows){
 
-const dataURL = await QRCode.toDataURL(String(row.qr_code));
-const base64 = dataURL.split(",")[1];
-const buffer = Buffer.from(base64,"base64");
+const url=`${process.env.FRONTEND_URL}/qr/${row.qr_code}`;
+const dataURL=await QRCode.toDataURL(url);
+
+const buffer=Buffer.from(dataURL.split(",")[1],"base64");
 
 doc.image(buffer,x,y,{width:100});
 
-x += 120;
+x+=120;
 
-if(x > 450){
-x = 30;
-y += 120;
+if(x>450){
+x=30;
+y+=120;
 }
 
-if(y > 700){
+if(y>700){
 doc.addPage();
-x = 30;
-y = 30;
+x=30;
+y=30;
 }
 
 }
@@ -288,44 +219,52 @@ doc.end();
 
 }catch(err){
 
-console.error("QR PDF ERROR:",err);
-
-res.status(500).json({
-message:"QR download failed",
-error:err.message
-});
+console.error(err);
+res.status(500).json({message:"QR download failed"});
 
 }
 
 });
 
-/* ================= EXTEND SUBSCRIPTION ================= */
+/* ================= RENEW SUBSCRIPTION ================= */
 
-router.post("/extend/:id", async (req,res)=>{
+router.post("/renew/:id", async (req,res)=>{
 
 try{
 
-const {months} = req.body;
-const id = req.params.id;
+const {plan}=req.body;
+const id=req.params.id;
 
-if(!months){
-return res.status(400).json({message:"Months required"});
+const plans={
+"1month":1,
+"3month":3,
+"6month":6,
+"12month":12
+};
+
+if(!plans[plan]){
+return res.status(400).json({message:"Invalid plan"});
 }
 
 await pool.query(
 `
 UPDATE qr_tags
-SET expires_at = expires_at + ($1 || ' months')::interval
-WHERE id=$2
+SET
+expires_at = NOW() + ($1 || ' months')::interval,
+plan_type = $2,
+status='active'
+WHERE id=$3
 `,
-[months,id]
+[plans[plan],plan,id]
 );
 
-res.json({message:"subscription_extended"});
+res.json({message:"subscription_renewed"});
 
 }catch(err){
+
 console.error(err);
-res.status(500).json({message:"Extension failed"});
+res.status(500).json({message:"Renewal failed"});
+
 }
 
 });
