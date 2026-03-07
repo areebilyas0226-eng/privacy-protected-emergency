@@ -77,8 +77,6 @@ if(!batch_name || !agent_name || !quantity || !type){
 return res.status(400).json({message:"Missing fields"});
 }
 
-/* VALIDATE TYPE */
-
 if(!["vehicle","pet"].includes(type)){
 return res.status(400).json({message:"Invalid QR type"});
 }
@@ -87,14 +85,18 @@ await client.query("BEGIN");
 
 const orderId = uuidv4();
 
+/* INSERT BATCH */
+
 await client.query(
-`INSERT INTO qr_orders
+`INSERT INTO qr_batches
 (id,batch_name,agent_name,quantity,type,status)
 VALUES ($1,$2,$3,$4,$5,'pending')`,
 [orderId,batch_name,agent_name,quantity,type]
 );
 
 const totalQR = Number(quantity) * 2;
+
+/* GENERATE QR TAGS */
 
 for(let i=0;i<totalQR;i++){
 
@@ -149,7 +151,7 @@ try{
 
 const result = await pool.query(`
 SELECT *
-FROM qr_orders
+FROM qr_batches
 ORDER BY created_at DESC
 `);
 
@@ -182,10 +184,10 @@ q.type,
 q.plan_type,
 q.activated_at,
 q.expires_at,
-o.batch_name
+b.batch_name
 FROM qr_tags q
-LEFT JOIN qr_orders o
-ON q.order_id = o.id
+LEFT JOIN qr_batches b
+ON q.order_id = b.id
 ORDER BY q.created_at DESC
 LIMIT 1000
 `);
