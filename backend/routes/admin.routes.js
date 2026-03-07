@@ -85,13 +85,13 @@ await client.query("BEGIN");
 
 const batchId = uuidv4();
 
-/* INSERT INTO qr_batches */
+/* INSERT BATCH (NO TYPE COLUMN HERE) */
 
 await client.query(
 `INSERT INTO qr_batches
-(id,batch_name,agent_name,quantity,type,status)
-VALUES ($1,$2,$3,$4,$5,'pending')`,
-[batchId,batch_name,agent_name,quantity,type]
+(id,batch_name,agent_name,quantity,status)
+VALUES ($1,$2,$3,$4,'pending')`,
+[batchId,batch_name,agent_name,quantity]
 );
 
 /* GENERATE QR TAGS */
