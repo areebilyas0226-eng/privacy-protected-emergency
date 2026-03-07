@@ -121,7 +121,7 @@ Operational Overview
 
 <div>
 <h3>Expiry</h3>
-<p>Each tag remains active for 30 days.</p>
+<p>Default validity = 5 months after activation.</p>
 </div>
 
 </div>
@@ -153,6 +153,7 @@ Analytics Graph Coming Soon
 <th>S.No</th>
 <th>Batch</th>
 <th>Agent</th>
+<th>Type</th>
 <th>Qty</th>
 <th>Status</th>
 <th>Created</th>
@@ -164,7 +165,7 @@ Analytics Graph Coming Soon
 {orders.length===0 &&(
 
 <tr>
-<td colSpan="6">
+<td colSpan="7">
 No Orders Found
 </td>
 </tr>
@@ -181,6 +182,8 @@ No Orders Found
 
 <td>{o.agent_name}</td>
 
+<td>{o.type || "-"}</td>
+
 <td>{o.quantity}</td>
 
 <td className={`status-${o.status}`}>
@@ -188,7 +191,10 @@ No Orders Found
 </td>
 
 <td>
-{new Date(o.created_at).toLocaleDateString()}
+{o.created_at
+? new Date(o.created_at).toLocaleDateString()
+: "-"
+}
 </td>
 
 </tr>

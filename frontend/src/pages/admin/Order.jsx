@@ -8,13 +8,14 @@ export default function Orders(){
 const [form,setForm] = useState({
 batch_name:"",
 agent_name:"",
-quantity:""
+quantity:"",
+type:"vehicle"
 });
 
 const [orders,setOrders] = useState([]);
 const [loading,setLoading] = useState(false);
 
-/* ================= FETCH QR ORDERS ================= */
+/* ================= FETCH ORDERS ================= */
 
 useEffect(()=>{
 fetchOrders();
@@ -28,22 +29,20 @@ const res = await fetch(`${API_BASE}/api/admin/qr-orders`,{
 credentials:"include"
 });
 
-if(!res.ok) throw new Error("Fetch failed");
-
 const data = await res.json();
 
 setOrders(Array.isArray(data)?data:[]);
 
 }catch(err){
 
-console.error("Orders fetch error:",err);
+console.error(err);
 setOrders([]);
 
 }
 
 }
 
-/* ================= CREATE QR ORDER ================= */
+/* ================= CREATE ORDER ================= */
 
 async function handleCreateOrder(){
 
@@ -63,29 +62,31 @@ credentials:"include",
 body:JSON.stringify({
 batch_name:form.batch_name,
 agent_name:form.agent_name,
-quantity:Number(form.quantity)
+quantity:Number(form.quantity),
+type:form.type
 })
 });
 
 const data = await res.json();
 
 if(!res.ok){
-alert(data.message || "QR order creation failed");
+alert(data.message || "QR order failed");
 return;
 }
 
 setForm({
 batch_name:"",
 agent_name:"",
-quantity:""
+quantity:"",
+type:"vehicle"
 });
 
 fetchOrders();
 
 }catch(err){
 
-console.error("Create order error:",err);
-alert("Order creation failed");
+console.error(err);
+alert("QR order failed");
 
 }finally{
 
@@ -95,7 +96,7 @@ setLoading(false);
 
 }
 
-/* ================= DOWNLOAD QR ================= */
+/* ================= DOWNLOAD ================= */
 
 function downloadQR(orderId){
 
@@ -121,6 +122,14 @@ return(
 <h2>Create QR Order</h2>
 
 <div style={styles.grid}>
+
+<select
+value={form.type}
+onChange={(e)=>setForm({...form,type:e.target.value})}
+>
+<option value="vehicle">Vehicle QR</option>
+<option value="pet">Pet QR</option>
+</select>
 
 <input
 placeholder="Batch Name"
@@ -161,17 +170,16 @@ disabled={loading}
 <table style={styles.table}>
 
 <thead>
-
 <tr>
 <th>S.No</th>
 <th>Batch</th>
 <th>Agent</th>
+<th>Type</th>
 <th>Qty</th>
 <th>Status</th>
 <th>Created</th>
 <th>Download</th>
 </tr>
-
 </thead>
 
 <tbody>
@@ -179,8 +187,8 @@ disabled={loading}
 {orders.length===0 &&(
 
 <tr>
-<td colSpan="7" style={{textAlign:"center",padding:"20px"}}>
-No QR orders found
+<td colSpan="8" style={{textAlign:"center",padding:"20px"}}>
+No orders found
 </td>
 </tr>
 
@@ -191,13 +199,10 @@ No QR orders found
 <tr key={o.id}>
 
 <td>{index+1}</td>
-
 <td>{o.batch_name}</td>
-
 <td>{o.agent_name}</td>
-
+<td>{o.type}</td>
 <td>{o.quantity}</td>
-
 <td>{o.status}</td>
 
 <td>
@@ -256,7 +261,7 @@ border:"1px solid rgba(255,255,255,0.2)"
 
 grid:{
 display:"grid",
-gridTemplateColumns:"1fr 1fr 1fr",
+gridTemplateColumns:"1fr 1fr 1fr 1fr",
 gap:"10px",
 marginBottom:"15px"
 },

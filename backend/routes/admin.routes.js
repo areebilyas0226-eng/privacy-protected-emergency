@@ -71,10 +71,16 @@ const client = await pool.connect();
 
 try{
 
-const {batch_name,agent_name,quantity} = req.body;
+const {batch_name,agent_name,quantity,type} = req.body;
 
-if(!batch_name || !agent_name || !quantity){
+if(!batch_name || !agent_name || !quantity || !type){
 return res.status(400).json({message:"Missing fields"});
+}
+
+/* VALIDATE TYPE */
+
+if(!["vehicle","pet"].includes(type)){
+return res.status(400).json({message:"Invalid QR type"});
 }
 
 await client.query("BEGIN");
@@ -83,9 +89,9 @@ const orderId = uuidv4();
 
 await client.query(
 `INSERT INTO qr_orders
-(id,batch_name,agent_name,quantity,status)
-VALUES ($1,$2,$3,$4,'pending')`,
-[orderId,batch_name,agent_name,quantity]
+(id,batch_name,agent_name,quantity,type,status)
+VALUES ($1,$2,$3,$4,$5,'pending')`,
+[orderId,batch_name,agent_name,quantity,type]
 );
 
 const totalQR = Number(quantity) * 2;
@@ -97,12 +103,13 @@ await client.query(
 INSERT INTO qr_tags
 (id, qr_code, status, order_id, type)
 VALUES
-($1,$2,'inactive',$3,'qr')
+($1,$2,'inactive',$3,$4)
 `,
 [
 uuidv4(),
 uuidv4(),
-orderId
+orderId,
+type
 ]
 );
 
