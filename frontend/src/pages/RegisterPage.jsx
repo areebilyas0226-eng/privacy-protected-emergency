@@ -13,7 +13,7 @@ mobile:"",
 vehicle_name:"",
 vehicle_number:"",
 blood_group:"",
-emergency_contact:""
+family_contact:""
 });
 
 const [loading,setLoading] = useState(false);
@@ -48,6 +48,10 @@ throw new Error(data.message || "Submission failed");
 
 setMessage("Vehicle registered successfully");
 
+setTimeout(()=>{
+window.location.href=`/emergency/${code}`;
+},1500);
+
 }catch(err){
 
 setMessage(err.message);
@@ -80,13 +84,7 @@ style={styles.input}
 <input
 name="mobile"
 placeholder="Mobile Number"
-onChange={handleChange}
-style={styles.input}
-/>
-
-<input
-name="vehicle_name"
-placeholder="Vehicle Name"
+inputMode="numeric"
 onChange={handleChange}
 style={styles.input}
 />
@@ -99,6 +97,13 @@ style={styles.input}
 />
 
 <input
+name="vehicle_name"
+placeholder="Vehicle Model"
+onChange={handleChange}
+style={styles.input}
+/>
+
+<input
 name="blood_group"
 placeholder="Blood Group"
 onChange={handleChange}
@@ -106,8 +111,9 @@ style={styles.input}
 />
 
 <input
-name="emergency_contact"
-placeholder="Emergency Contact"
+name="family_contact"
+placeholder="Family Contact Number"
+inputMode="numeric"
 onChange={handleChange}
 style={styles.input}
 />
@@ -147,11 +153,11 @@ card:{
 width:"100%",
 maxWidth:"420px",
 padding:"30px",
-borderRadius:"20px",
-backdropFilter:"blur(20px)",
+borderRadius:"22px",
+backdropFilter:"blur(25px)",
 background:"rgba(255,255,255,0.2)",
 border:"1px solid rgba(255,255,255,0.3)",
-boxShadow:"0 10px 40px rgba(0,0,0,0.2)"
+boxShadow:"0 10px 40px rgba(0,0,0,0.25)"
 },
 
 title:{
@@ -167,18 +173,18 @@ gap:"14px"
 },
 
 input:{
-padding:"12px 14px",
+padding:"14px",
 borderRadius:"12px",
 border:"none",
 outline:"none",
-background:"rgba(255,255,255,0.9)",
+background:"rgba(255,255,255,0.95)",
 fontSize:"15px"
 },
 
 button:{
 marginTop:"10px",
-padding:"12px",
-borderRadius:"12px",
+padding:"14px",
+borderRadius:"14px",
 border:"none",
 background:"#1d4ed8",
 color:"#fff",
