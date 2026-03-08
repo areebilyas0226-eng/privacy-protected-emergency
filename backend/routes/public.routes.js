@@ -1,67 +1,73 @@
 import express from "express";
 
 export default function publicRoutes(pool) {
-  const router = express.Router();
 
-  function normalize(code) {
-    return code?.trim() || null;
-  }
+const router = express.Router();
 
-  async function getQR(code) {
-    const result = await pool.query(
-      `SELECT status, subscription_expires_at
-       FROM qr_tags
-       WHERE qr_code = $1`,
-      [code]
-    );
-    return result.rows[0] || null;
-  }
+function normalize(code){
+return code?.trim() || null;
+}
 
-  /* ===============================
-     QR SCAN ENTRY
-     https://yourdomain.com/q/<qr_code>
-  =============================== */
-  router.get("/q/:code", async (req, res) => {
-    const code = normalize(req.params.code);
+async function getQR(code){
 
-    if (!code) {
-      return res.status(400).send("Invalid QR code");
-    }
+const result = await pool.query(
+`
+SELECT status, expires_at
+FROM qr_tags
+WHERE qr_code=$1
+`,
+[code]
+);
 
-    try {
-      const qr = await getQR(code);
+return result.rows[0] || null;
 
-      if (!qr) {
-        return res.status(404).send("QR not found");
-      }
+}
 
-      const frontend = process.env.FRONTEND_URL;
+/* ===============================
+QR SCAN ENTRY
+=============================== */
 
-      if (!frontend) {
-        return res.status(500).send("Frontend URL not configured");
-      }
+router.get("/q/:code", async (req,res)=>{
 
-      // Not activated
-      if (qr.status === "inactive") {
-        return res.redirect(`${frontend}/activate/${code}`);
-      }
+const code = normalize(req.params.code);
 
-      // Expired subscription
-      if (
-        qr.subscription_expires_at &&
-        new Date(qr.subscription_expires_at) < new Date()
-      ) {
-        return res.redirect(`${frontend}/subscribe/${code}`);
-      }
+if(!code){
+return res.status(400).send("Invalid QR code");
+}
 
-      // Active & valid
-      return res.redirect(`${frontend}/emergency/${code}`);
+try{
 
-    } catch (err) {
-      console.error("PUBLIC QR ERROR:", err);
-      return res.status(500).send("Server error");
-    }
-  });
+const qr = await getQR(code);
 
-  return router;
+if(!qr){
+return res.status(404).send("QR not found");
+}
+
+const frontend = process.env.FRONTEND_URL;
+
+if(!frontend){
+return res.status(500).send("Frontend URL not configured");
+}
+
+if(qr.status === "inactive"){
+return res.redirect(`${frontend}/activate/${code}`);
+}
+
+if(qr.expires_at && new Date(qr.expires_at) < new Date()){
+return res.redirect(`${frontend}/subscribe/${code}`);
+}
+
+return res.redirect(`${frontend}/emergency/${code}`);
+
+}catch(err){
+
+console.error("PUBLIC QR ERROR:",err);
+return res.status(500).send("Server error");
+
+}
+
+});
+
+return router;
+
 }

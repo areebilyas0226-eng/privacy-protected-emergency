@@ -14,32 +14,24 @@ try{
 
 const { code } = req.params;
 
-/* find tag */
-
 const tag = await pool.query(
 `SELECT id,status FROM qr_tags WHERE qr_code=$1`,
 [code]
 );
 
 if(tag.rowCount === 0){
-return res.status(404).json({
-message:"qr_not_found"
-});
+return res.status(404).json({message:"qr_not_found"});
 }
 
 if(tag.rows[0].status !== "inactive"){
-return res.status(400).json({
-message:"already_activated"
-});
+return res.status(400).json({message:"already_activated"});
 }
-
-/* activate */
 
 await pool.query(
 `
 UPDATE qr_tags
 SET
-status='activation_pending',
+status='active',
 activated_at=NOW(),
 expires_at=NOW()+ interval '5 months'
 WHERE qr_code=$1
@@ -53,7 +45,7 @@ message:"tag_activated"
 
 }catch(err){
 
-console.error("ACTIVATION ERROR:",err);
+console.error("TAG ACTIVATION ERROR:",err);
 
 res.status(500).json({
 message:"activation_failed"
