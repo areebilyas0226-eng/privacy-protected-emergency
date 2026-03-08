@@ -43,10 +43,11 @@ APP INIT
 const app = express();
 app.set("trust proxy", 1);
 
-const PORT = process.env.PORT || 8080;
+/* Railway provides PORT */
+const PORT = process.env.PORT;
 
 /* =========================
-SECURITY MIDDLEWARE
+MIDDLEWARE
 ========================= */
 
 app.use(helmet());
@@ -59,7 +60,6 @@ CORS
 
 const allowedOrigins = [
   "http://localhost:5173",
-  "http://localhost:5174",
   process.env.FRONTEND_URL
 ].filter(Boolean);
 
@@ -69,16 +69,14 @@ const corsOptions = {
     if (allowedOrigins.includes(origin)) return cb(null, true);
     return cb(null, false);
   },
-  credentials: true,
-  methods: ["GET","POST","PUT","DELETE","OPTIONS"],
-  allowedHeaders: ["Content-Type","Authorization"]
+  credentials: true
 };
 
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 
 /* =========================
-HEALTHCHECK (Railway)
+HEALTHCHECK
 ========================= */
 
 app.get("/", (req, res) => {
@@ -95,16 +93,12 @@ RATE LIMIT
 
 const publicLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300,
-  standardHeaders: true,
-  legacyHeaders: false
+  max: 300
 });
 
 const adminLoginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
-  standardHeaders: true,
-  legacyHeaders: false
+  max: 5
 });
 
 /* =========================
@@ -144,18 +138,11 @@ ERROR HANDLER
 
 app.use((err, req, res, next) => {
   console.error("Server error:", err);
-
-  if (err.type === "entity.parse.failed") {
-    return res.status(400).json({ message: "Invalid JSON body" });
-  }
-
-  res.status(500).json({
-    message: "Internal server error"
-  });
+  res.status(500).json({ message: "Internal server error" });
 });
 
 /* =========================
-START SERVER (FAST START)
+START SERVER
 ========================= */
 
 const server = app.listen(PORT, "0.0.0.0", () => {
@@ -174,24 +161,3 @@ setImmediate(async () => {
     console.error("Database connection failed:", err);
   }
 });
-
-/* =========================
-GRACEFUL SHUTDOWN
-========================= */
-
-const shutdown = async () => {
-  console.log("Shutdown signal received");
-
-  server.close(async () => {
-    try {
-      await pool.end();
-      console.log("Database pool closed");
-    } catch (err) {
-      console.error("Shutdown DB error:", err);
-    }
-    process.exit(0);
-  });
-};
-
-process.on("SIGTERM", shutdown);
-process.on("SIGINT", shutdown);
