@@ -8,12 +8,9 @@ export default function RegisterPage(){
 const { code } = useParams();
 
 const [form,setForm] = useState({
-owner_name:"",
 mobile:"",
-vehicle_name:"",
 vehicle_number:"",
-blood_group:"",
-family_contact:""
+vehicle_name:""
 });
 
 const [loading,setLoading] = useState(false);
@@ -26,6 +23,11 @@ setForm({...form,[e.target.name]:e.target.value});
 async function handleSubmit(e){
 
 e.preventDefault();
+
+if(!form.mobile || !form.vehicle_number || !form.vehicle_name){
+setMessage("Please fill all fields");
+return;
+}
 
 setLoading(true);
 setMessage("");
@@ -46,7 +48,7 @@ if(!res.ok){
 throw new Error(data.message || "Submission failed");
 }
 
-setMessage("Vehicle registered successfully");
+setMessage("QR Tag Successfully Activated");
 
 setTimeout(()=>{
 window.location.href=`/emergency/${code}`;
@@ -75,13 +77,6 @@ return(
 <form onSubmit={handleSubmit} style={styles.form}>
 
 <input
-name="owner_name"
-placeholder="Owner Name"
-onChange={handleChange}
-style={styles.input}
-/>
-
-<input
 name="mobile"
 placeholder="Mobile Number"
 inputMode="numeric"
@@ -91,7 +86,7 @@ style={styles.input}
 
 <input
 name="vehicle_number"
-placeholder="Vehicle Number"
+placeholder="Vehicle Number (e.g. UK01AA1234)"
 onChange={handleChange}
 style={styles.input}
 />
@@ -103,27 +98,12 @@ onChange={handleChange}
 style={styles.input}
 />
 
-<input
-name="blood_group"
-placeholder="Blood Group"
-onChange={handleChange}
-style={styles.input}
-/>
-
-<input
-name="family_contact"
-placeholder="Family Contact Number"
-inputMode="numeric"
-onChange={handleChange}
-style={styles.input}
-/>
-
 <button
 type="submit"
 disabled={loading}
 style={styles.button}
 >
-{loading ? "Submitting..." : "Submit"}
+{loading ? "Submitting..." : "Activate Tag"}
 </button>
 
 {message && <p style={styles.message}>{message}</p>}

@@ -1,146 +1,74 @@
 import express from "express";
 
-export default function profileRoutes(pool) {
+export default function publicRoutes(pool) {
 
 const router = express.Router();
 
-/* =========================================
-CREATE VEHICLE PROFILE (REGISTRATION)
-POST /api/profile/:qrCode
-========================================= */
-
-router.post("/:qrCode", async (req, res) => {
-
-try {
-
-const { qrCode } = req.params;
-
-const {
-owner_name,
-mobile,
-vehicle_name,
-vehicle_number,
-blood_group,
-family_contact
-} = req.body;
-
-/* find QR tag */
-
-const qrResult = await pool.query(
-`SELECT id FROM qr_tags WHERE qr_code=$1 LIMIT 1`,
-[qrCode]
-);
-
-if (qrResult.rowCount === 0) {
-return res.status(404).json({ message: "QR not found" });
+function normalize(code){
+return code?.trim() || null;
 }
 
-const qrTagId = qrResult.rows[0].id;
-
-/* check existing profile */
-
-const exists = await pool.query(
-`SELECT id FROM vehicle_profiles WHERE qr_tag_id=$1 LIMIT 1`,
-[qrTagId]
-);
-
-if (exists.rowCount > 0) {
-return res.status(400).json({ message: "Profile already exists" });
-}
-
-/* insert vehicle profile */
-
-await pool.query(
-`
-INSERT INTO vehicle_profiles
-(
-qr_tag_id,
-owner_name,
-owner_mobile,
-vehicle_number,
-model,
-blood_group,
-family_contact
-)
-VALUES ($1,$2,$3,$4,$5,$6,$7)
-`,
-[
-qrTagId,
-owner_name,
-mobile,
-vehicle_number,
-vehicle_name,
-blood_group,
-family_contact
-]
-);
-
-return res.json({
-message: "profile_created"
-});
-
-} catch (error) {
-
-console.error("PROFILE CREATE ERROR:", error);
-
-return res.status(500).json({
-message: "Server error"
-});
-
-}
-
-});
-
-/* =========================================
-GET PROFILE BY QR
-GET /api/profile/:type/:qrCode
-========================================= */
-
-router.get("/:type/:qrCode", async (req, res) => {
-
-try {
-
-const { type, qrCode } = req.params;
-
-if (!["vehicle", "pet"].includes(type)) {
-return res.status(400).json({ message: "Invalid profile type" });
-}
-
-const qrResult = await pool.query(
-`SELECT id FROM qr_tags WHERE qr_code=$1 LIMIT 1`,
-[qrCode]
-);
-
-if (qrResult.rowCount === 0) {
-return res.status(404).json({ message: "QR not found" });
-}
-
-const qrTagId = qrResult.rows[0].id;
-
-const table = type === "vehicle"
-? "vehicle_profiles"
-: "pet_profiles";
+async function getQR(code){
 
 const result = await pool.query(
-`SELECT * FROM ${table} WHERE qr_tag_id=$1 LIMIT 1`,
-[qrTagId]
+`
+SELECT status, expires_at
+FROM qr_tags
+WHERE qr_code=$1
+`,
+[code]
 );
 
-if (result.rowCount === 0) {
-return res.status(404).json({
-message: "Profile not found"
-});
+return result.rows[0] || null;
+
 }
 
-return res.json(result.rows[0]);
+/* ===============================
+QR SCAN ENTRY
+=============================== */
 
-} catch (error) {
+router.get("/q/:code", async (req,res)=>{
 
-console.error("PROFILE FETCH ERROR:", error);
+const code = normalize(req.params.code);
 
-return res.status(500).json({
-message: "Server error"
-});
+if(!code){
+return res.status(400).send("Invalid QR code");
+}
+
+try{
+
+const qr = await getQR(code);
+
+if(!qr){
+return res.status(404).send("QR not found");
+}
+
+const frontend = process.env.FRONTEND_URL;
+
+if(!frontend){
+return res.status(500).send("Frontend URL not configured");
+}
+
+/* inactive tag */
+
+if(qr.status === "inactive"){
+return res.redirect(`${frontend}/activate/${code}`);
+}
+
+/* expired */
+
+if(qr.expires_at && new Date(qr.expires_at) < new Date()){
+return res.redirect(`${frontend}/subscribe/${code}`);
+}
+
+/* active */
+
+return res.redirect(`${frontend}/emergency/${code}`);
+
+}catch(err){
+
+console.error("PUBLIC QR ERROR:",err);
+return res.status(500).send("Server error");
 
 }
 

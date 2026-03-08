@@ -46,7 +46,7 @@ if(qr.type==="vehicle"){
 
 const result = await pool.query(
 `
-SELECT vehicle_number,blood_group,model
+SELECT vehicle_number,model,owner_mobile
 FROM vehicle_profiles
 WHERE qr_tag_id=$1
 `,
@@ -62,6 +62,8 @@ profile=result.rows[0];
 if(!profile){
 return res.status(404).json({message:"Profile not found"});
 }
+
+/* log scan */
 
 await pool.query(
 `
@@ -80,7 +82,7 @@ allow_sms:true
 
 }catch(err){
 
-console.error(err);
+console.error("EMERGENCY ERROR:",err);
 res.status(500).json({message:"Server error"});
 
 }
