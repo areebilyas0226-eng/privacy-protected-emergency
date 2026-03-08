@@ -8,6 +8,7 @@ import helmet from "helmet";
 import cookieParser from "cookie-parser";
 
 import pool from "./db.js";
+
 import qrRoutes from "./routes/qr.routes.js";
 import emergencyRoutes from "./routes/emergency.routes.js";
 import otpRoutes from "./routes/otp.routes.js";
@@ -18,7 +19,7 @@ import publicRoutes from "./routes/public.routes.js";
 import tagRoutes from "./routes/tag.routes.js";
 
 /* =========================
-   ENV VALIDATION
+ENV VALIDATION
 ========================= */
 
 const requiredEnv = [
@@ -35,17 +36,21 @@ requiredEnv.forEach((key) => {
   }
 });
 
+/* =========================
+PORT
+========================= */
+
 const PORT = process.env.PORT || 8080;
 
 /* =========================
-   APP INIT
+APP INIT
 ========================= */
 
 const app = express();
 app.set("trust proxy", 1);
 
 /* =========================
-   SECURITY
+SECURITY
 ========================= */
 
 app.use(helmet());
@@ -53,7 +58,7 @@ app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
 
 /* =========================
-   CORS (Correct + Safe)
+CORS
 ========================= */
 
 const allowedOrigins = [
@@ -65,60 +70,50 @@ const allowedOrigins = [
 const corsOptions = {
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
+    if (allowedOrigins.includes(origin)) return callback(null, true);
     return callback(null, false);
   },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
+  credentials: true
 };
 
 app.use(cors(corsOptions));
-
-// ✅ Correct preflight handling
-app.options(/.*/, cors(corsOptions));
+app.options("*", cors(corsOptions));
 
 /* =========================
-   HEALTHCHECK
+HEALTHCHECK
 ========================= */
 
-app.get("/", (_, res) => {
+app.get("/", (req, res) => {
   res.status(200).send("OK");
 });
 
-app.get("/health", async (_, res) => {
+app.get("/health", async (req, res) => {
   try {
     await pool.query("SELECT 1");
     res.status(200).send("OK");
   } catch (err) {
-    console.error("Health check DB error:", err);
+    console.error("DB health error:", err);
     res.status(500).send("DB DOWN");
   }
 });
 
 /* =========================
-   RATE LIMITERS
+RATE LIMIT
 ========================= */
 
 const publicLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300,
-  standardHeaders: true,
-  legacyHeaders: false
+  max: 300
 });
 
 const adminLoginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { message: "Too many login attempts. Try later." }
+  message: { message: "Too many login attempts" }
 });
 
 /* =========================
-   API ROUTES
+API ROUTES
 ========================= */
 
 app.use("/api", publicLimiter);
@@ -131,16 +126,17 @@ app.use("/api/masked", maskedRoutes(pool));
 
 app.use("/api/admin/login", adminLoginLimiter);
 app.use("/api/admin", adminRoutes(pool));
+
 app.use("/api/tags", tagRoutes(pool));
 
 /* =========================
-   PUBLIC ROUTES (LAST)
+PUBLIC ROUTES
 ========================= */
 
 app.use("/", publicRoutes(pool));
 
 /* =========================
-   404
+404
 ========================= */
 
 app.use((req, res) => {
@@ -148,11 +144,11 @@ app.use((req, res) => {
 });
 
 /* =========================
-   ERROR HANDLER
+ERROR HANDLER
 ========================= */
 
 app.use((err, req, res, next) => {
-  console.error("Server error:", err.message);
+  console.error("Server error:", err);
 
   if (err.type === "entity.parse.failed") {
     return res.status(400).json({ message: "Invalid JSON body" });
@@ -162,7 +158,7 @@ app.use((err, req, res, next) => {
 });
 
 /* =========================
-   START SERVER
+START SERVER
 ========================= */
 
 const server = app.listen(PORT, "0.0.0.0", () => {
@@ -170,7 +166,7 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 });
 
 /* =========================
-   DB CHECK
+DB CONNECTION CHECK
 ========================= */
 
 pool
@@ -179,7 +175,7 @@ pool
   .catch((err) => console.error("Database connection failed:", err));
 
 /* =========================
-   GRACEFUL SHUTDOWN
+GRACEFUL SHUTDOWN
 ========================= */
 
 const shutdown = async () => {
