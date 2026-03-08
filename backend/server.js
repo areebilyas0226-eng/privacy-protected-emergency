@@ -29,12 +29,12 @@ const requiredEnv = [
   "JWT_SECRET"
 ];
 
-requiredEnv.forEach((key) => {
+for (const key of requiredEnv) {
   if (!process.env[key]) {
     console.error(`${key} not defined`);
     process.exit(1);
   }
-});
+}
 
 /* =========================
 APP INIT
@@ -46,7 +46,7 @@ app.set("trust proxy", 1);
 const PORT = process.env.PORT || 8080;
 
 /* =========================
-MIDDLEWARE
+SECURITY MIDDLEWARE
 ========================= */
 
 app.use(helmet());
@@ -63,24 +63,28 @@ const allowedOrigins = [
   process.env.FRONTEND_URL
 ].filter(Boolean);
 
-app.use(cors({
+const corsOptions = {
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);
     if (allowedOrigins.includes(origin)) return cb(null, true);
     return cb(null, false);
   },
-  credentials: true
-}));
+  credentials: true,
+  methods: ["GET","POST","PUT","DELETE","OPTIONS"],
+  allowedHeaders: ["Content-Type","Authorization"]
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 
 /* =========================
-HEALTHCHECK
+HEALTHCHECK (Railway)
 ========================= */
 
 app.get("/", (req, res) => {
   res.status(200).send("OK");
 });
 
-/* IMPORTANT: must be fast */
 app.get("/health", (req, res) => {
   res.status(200).send("OK");
 });
@@ -91,12 +95,16 @@ RATE LIMIT
 
 const publicLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false
 });
 
 const adminLoginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false
 });
 
 /* =========================
@@ -137,28 +145,53 @@ ERROR HANDLER
 app.use((err, req, res, next) => {
   console.error("Server error:", err);
 
+  if (err.type === "entity.parse.failed") {
+    return res.status(400).json({ message: "Invalid JSON body" });
+  }
+
   res.status(500).json({
     message: "Internal server error"
   });
 });
 
 /* =========================
-START SERVER
+START SERVER (FAST START)
 ========================= */
 
-app.listen(PORT, "0.0.0.0", () => {
+const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });
 
 /* =========================
-DB CONNECTION (ASYNC)
+DB CONNECT (ASYNC)
 ========================= */
 
-(async () => {
+setImmediate(async () => {
   try {
     await pool.query("SELECT 1");
     console.log("Database connected");
   } catch (err) {
     console.error("Database connection failed:", err);
   }
-})();
+});
+
+/* =========================
+GRACEFUL SHUTDOWN
+========================= */
+
+const shutdown = async () => {
+  console.log("Shutdown signal received");
+
+  server.close(async () => {
+    try {
+      await pool.end();
+      console.log("Database pool closed");
+    } catch (err) {
+      console.error("Shutdown DB error:", err);
+    }
+    process.exit(0);
+  });
+};
+
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
