@@ -10,19 +10,8 @@ export default function ActivatePage() {
 
   const [loading,setLoading] = useState(false);
   const [error,setError] = useState("");
-  const [tagType,setTagType] = useState("");
 
   async function handleActivate(){
-
-    if(!code){
-      setError("Invalid QR code");
-      return;
-    }
-
-    if(!tagType){
-      setError("Please select tag type");
-      return;
-    }
 
     if(!API_BASE){
       setError("API not configured");
@@ -38,10 +27,7 @@ export default function ActivatePage() {
         method:"POST",
         headers:{
           "Content-Type":"application/json"
-        },
-        body:JSON.stringify({
-          type:tagType
-        })
+        }
       });
 
       const data = await res.json();
@@ -50,118 +36,105 @@ export default function ActivatePage() {
         throw new Error(data.message || "Activation failed");
       }
 
-      /* redirect based on type */
-
-      if(tagType === "vehicle"){
-        navigate(`/register/vehicle/${code}`);
-      }else{
-        navigate(`/register/pet/${code}`);
-      }
+      navigate(`/register/${code}`);
 
     }catch(err){
-
       setError(err.message);
-
     }finally{
-
       setLoading(false);
-
     }
 
   }
 
-  return(
+  return (
 
-  <div style={{
-  minHeight:"100vh",
-  display:"flex",
-  alignItems:"center",
-  justifyContent:"center",
-  background:"#f4f4f4"
-  }}>
+    <div style={{
+      minHeight:"100vh",
+      display:"flex",
+      alignItems:"center",
+      justifyContent:"center",
+      background:"#f5f5f5",
+      padding:"20px"
+    }}>
 
-  <div style={{
-  width:"420px",
-  background:"#fff",
-  padding:"30px",
-  borderRadius:"10px",
-  textAlign:"center",
-  boxShadow:"0 0 10px rgba(0,0,0,0.1)"
-  }}>
+      <div style={{
+        width:"420px",
+        background:"#fff",
+        padding:"35px",
+        borderRadius:"12px",
+        textAlign:"center",
+        boxShadow:"0 10px 30px rgba(0,0,0,0.08)"
+      }}>
 
-  <h2>Company Number</h2>
+        <h2 style={{marginBottom:"20px"}}>
+          Activate Emergency Tag
+        </h2>
 
-  <p style={{marginTop:15,lineHeight:1.6}}>
-  You are about to activate the emergency QR tag.<br/>
-  Each tag is unique.<br/>
-  You can update your details later from your account.<br/>
-  Enter vehicle number or pet details on the next step.
-  </p>
+        <p style={{
+          lineHeight:1.6,
+          color:"#555",
+          fontSize:"15px"
+        }}>
+          You are about to activate your emergency QR tag.
+          <br/><br/>
+          Each tag is unique and linked to your account.
+          You can update your information later.
+          <br/><br/>
+          On the next step you will enter:
+          <br/>
+          Vehicle number and phone number.
+        </p>
 
-  <div style={{marginTop:20}}>
+        <button
+          onClick={handleActivate}
+          disabled={loading}
+          style={{
+            marginTop:"30px",
+            width:"100%",
+            padding:"14px",
+            fontSize:"16px",
+            background:"#2563eb",
+            color:"#fff",
+            border:"none",
+            borderRadius:"8px",
+            cursor:"pointer"
+          }}
+        >
+          {loading ? "Activating..." : "Activate Tag"}
+        </button>
 
-  <label style={{marginRight:10}}>
-  <input
-  type="radio"
-  value="vehicle"
-  checked={tagType==="vehicle"}
-  onChange={(e)=>setTagType(e.target.value)}
-  />
-  Vehicle
-  </label>
+        {error && (
+          <p style={{
+            color:"red",
+            marginTop:"15px"
+          }}>
+            {error}
+          </p>
+        )}
 
-  <label>
-  <input
-  type="radio"
-  value="pet"
-  checked={tagType==="pet"}
-  onChange={(e)=>setTagType(e.target.value)}
-  />
-  Pet
-  </label>
+        <p style={{
+          marginTop:"25px",
+          fontSize:"14px",
+          color:"#666"
+        }}>
+          Need help?
+        </p>
 
-  </div>
+        <a
+          href="https://wa.me/919000000000"
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            color:"#25D366",
+            fontWeight:"600"
+          }}
+        >
+          WhatsApp Live Support
+        </a>
 
-  <button
-  onClick={handleActivate}
-  disabled={loading}
-  style={{
-  marginTop:25,
-  padding:"12px 28px",
-  background:"#2563eb",
-  color:"#fff",
-  border:"none",
-  borderRadius:"8px",
-  cursor:"pointer",
-  fontSize:"16px"
-  }}
-  >
-  {loading ? "Activating..." : "Activate Tag"}
-  </button>
+      </div>
 
-  {error && (
-  <p style={{
-  color:"red",
-  marginTop:"15px"
-  }}>
-  {error}
-  </p>
-  )}
-
-  <p style={{marginTop:25,fontSize:"14px"}}>
-  If you need any help please<br/>
-  <a
-  href="https://wa.me/919999999999"
-  target="_blank"
-  rel="noopener noreferrer"
-  >
-  WhatsApp Live Support
-  </a>
-  </p>
-
-  </div>
-
-  </div>
+    </div>
 
   );
 
