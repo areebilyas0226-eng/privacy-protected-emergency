@@ -15,6 +15,7 @@ import maskedRoutes from "./routes/masked.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import profileRoutes from "./routes/profiles.routes.js";
 import publicRoutes from "./routes/public.routes.js";
+import tagRoutes from "./routes/tag.routes.js";
 
 /* =========================
    ENV VALIDATION
@@ -130,6 +131,7 @@ app.use("/api/masked", maskedRoutes(pool));
 
 app.use("/api/admin/login", adminLoginLimiter);
 app.use("/api/admin", adminRoutes(pool));
+app.use("/api/tags", tagRoutes(pool));
 
 /* =========================
    PUBLIC ROUTES (LAST)

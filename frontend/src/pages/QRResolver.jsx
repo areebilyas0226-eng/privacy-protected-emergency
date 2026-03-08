@@ -3,86 +3,75 @@ import { useEffect, useRef } from "react";
 
 const API_BASE = import.meta.env.VITE_API_URL;
 
-export default function QRResolver() {
+export default function QRResolver(){
 
 const { code } = useParams();
 const navigate = useNavigate();
 const resolved = useRef(false);
 
-useEffect(() => {
+useEffect(()=>{
 
-if (!code || resolved.current) return;
+if(!code || resolved.current) return;
 
 resolved.current = true;
 
-async function resolveQR() {
+async function resolveQR(){
 
-try {
+try{
 
 const res = await fetch(`${API_BASE}/api/qr/${code}`);
 
-if (!res.ok) {
-navigate(`/expired/${code}`, { replace: true });
+if(!res.ok){
+navigate(`/expired/${code}`,{replace:true});
 return;
 }
 
 const data = await res.json();
 
-/* ---------------------------
-TAG NOT REGISTERED
-----------------------------*/
+/* inactive → show activate page */
 
-if (!data.profile_id && !data.owner_name) {
-navigate(`/register/${code}`, { replace: true });
+if(data.status === "inactive"){
+navigate(`/activate/${code}`,{replace:true});
 return;
 }
 
-/* ---------------------------
-TAG REGISTERED BUT NOT ACTIVE
-----------------------------*/
+/* activation started → go to register */
 
-if (data.status === "inactive") {
-navigate(`/activate/${code}`, { replace: true });
+if(data.status === "activation_pending"){
+navigate(`/register/${code}`,{replace:true});
 return;
 }
 
-/* ---------------------------
-ACTIVE TAG
-----------------------------*/
+/* active tag */
 
-if (data.status === "active") {
+if(data.status === "active"){
 
 const expiry = data.expires_at ? new Date(data.expires_at) : null;
 const now = new Date();
 
-/* No expiry stored */
-if (!expiry) {
-navigate(`/emergency/${code}`, { replace: true });
+if(!expiry){
+navigate(`/emergency/${code}`,{replace:true});
 return;
 }
 
-/* Valid subscription */
-if (expiry.getTime() > now.getTime()) {
-navigate(`/emergency/${code}`, { replace: true });
+if(expiry.getTime() > now.getTime()){
+navigate(`/emergency/${code}`,{replace:true});
 return;
 }
 
-/* Expired subscription */
-navigate(`/subscription/${code}`, { replace: true });
+navigate(`/subscription/${code}`,{replace:true});
 return;
 
 }
 
-/* ---------------------------
-UNKNOWN STATE
-----------------------------*/
+/* fallback */
 
-navigate(`/expired/${code}`, { replace: true });
+navigate(`/expired/${code}`,{replace:true});
 
-} catch (err) {
+}catch(err){
 
-console.error("QR Resolve Error:", err);
-navigate(`/expired/${code}`, { replace: true });
+console.error(err);
+navigate(`/expired/${code}`,{replace:true});
 
 }
 
@@ -90,21 +79,20 @@ navigate(`/expired/${code}`, { replace: true });
 
 resolveQR();
 
-}, [code, navigate]);
+},[code,navigate]);
 
-return (
-<div
-style={{
-minHeight: "100vh",
-display: "flex",
-alignItems: "center",
-justifyContent: "center",
-fontSize: "18px",
-fontWeight: "500"
-}}
->
+return(
+
+<div style={{
+minHeight:"100vh",
+display:"flex",
+alignItems:"center",
+justifyContent:"center",
+fontSize:"18px"
+}}>
 Resolving QR...
 </div>
+
 );
 
 }

@@ -3,52 +3,63 @@ import { useState } from "react";
 
 const API_BASE = import.meta.env.VITE_API_URL;
 
-export default function RegisterPage() {
+export default function RegisterPage(){
 
-  const { code } = useParams();
-  const navigate = useNavigate();
+const { code } = useParams();
+const navigate = useNavigate();
 
-  const [name,setName] = useState("");
-  const [phone,setPhone] = useState("");
+const [owner,setOwner] = useState("");
+const [phone,setPhone] = useState("");
+const [vehicle,setVehicle] = useState("");
+const [vehicleNumber,setVehicleNumber] = useState("");
+const [blood,setBlood] = useState("");
+const [emergency,setEmergency] = useState("");
 
-  async function handleRegister(){
+async function handleRegister(){
 
-    const res = await fetch(`${API_BASE}/api/profiles/register`,{
-      method:"POST",
-      headers:{ "Content-Type":"application/json"},
-      body:JSON.stringify({ code,name,phone })
-    });
+const res = await fetch(`${API_BASE}/api/profiles/register`,{
+method:"POST",
+headers:{ "Content-Type":"application/json"},
+body:JSON.stringify({
+code,
+owner,
+phone,
+vehicle,
+vehicleNumber,
+blood,
+emergency
+})
+});
 
-    if(res.ok){
-      navigate(`/activate/${code}`);
-    }
+if(res.ok){
 
-  }
+/* profile saved → tag active */
 
-  return (
+navigate(`/emergency/${code}`);
 
-    <div style={{padding:40}}>
+}
 
-      <h1>Register QR</h1>
+}
 
-      <input
-        placeholder="Name"
-        value={name}
-        onChange={e=>setName(e.target.value)}
-      />
+return(
 
-      <input
-        placeholder="Phone"
-        value={phone}
-        onChange={e=>setPhone(e.target.value)}
-      />
+<div style={{padding:40,maxWidth:400}}>
 
-      <button onClick={handleRegister}>
-        Register
-      </button>
+<h2>Vehicle Registration</h2>
 
-    </div>
+<input placeholder="Owner Name" value={owner} onChange={e=>setOwner(e.target.value)} />
+<input placeholder="Mobile Number" value={phone} onChange={e=>setPhone(e.target.value)} />
+<input placeholder="Vehicle Name" value={vehicle} onChange={e=>setVehicle(e.target.value)} />
+<input placeholder="Vehicle Number" value={vehicleNumber} onChange={e=>setVehicleNumber(e.target.value)} />
+<input placeholder="Blood Group" value={blood} onChange={e=>setBlood(e.target.value)} />
+<input placeholder="Emergency Contact" value={emergency} onChange={e=>setEmergency(e.target.value)} />
 
-  );
+<button onClick={handleRegister} style={{marginTop:20}}>
+Submit
+</button>
+
+</div>
+
+);
 
 }
