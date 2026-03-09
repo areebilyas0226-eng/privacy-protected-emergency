@@ -26,9 +26,28 @@ function handleChange(e){
 setForm({...form,[e.target.name]:e.target.value});
 }
 
+function validateForm(){
+
+if(!form.owner_name) return "Owner name required";
+if(!form.mobile) return "Owner mobile required";
+if(!form.vehicle_name) return "Vehicle name required";
+if(!form.vehicle_number) return "Vehicle number required";
+if(!form.blood_group) return "Blood group required";
+if(!form.family_contact) return "Family contact required";
+
+return null;
+
+}
+
 /* SEND OTP */
 
 async function sendOTP(){
+
+const error = validateForm();
+if(error){
+setMessage(error);
+return;
+}
 
 setLoading(true);
 setMessage("");
@@ -61,6 +80,11 @@ setLoading(false);
 /* ACTIVATE TAG */
 
 async function activateTag(){
+
+if(!otp){
+setMessage("Enter OTP first");
+return;
+}
 
 setLoading(true);
 setMessage("");
@@ -100,9 +124,15 @@ throw new Error(p.message || "Profile creation failed");
 
 /* ACTIVATE QR */
 
-await fetch(`${API_BASE}/api/tags/activate/${code}`,{
+const activate = await fetch(`${API_BASE}/api/tags/activate/${code}`,{
 method:"POST"
 });
+
+const a = await activate.json().catch(()=>({}));
+
+if(!activate.ok){
+throw new Error(a.message || "Activation failed");
+}
 
 setMessage("QR Tag Activated Successfully");
 
@@ -172,9 +202,10 @@ style={styles.input}
 
 <button
 onClick={sendOTP}
+disabled={loading}
 style={styles.button}
 >
-Send OTP
+{loading ? "Sending OTP..." : "Send OTP"}
 </button>
 
 )}
@@ -191,9 +222,10 @@ style={styles.input}
 
 <button
 onClick={activateTag}
+disabled={loading}
 style={styles.button}
 >
-Activate Tag
+{loading ? "Activating..." : "Activate Tag"}
 </button>
 </>
 
