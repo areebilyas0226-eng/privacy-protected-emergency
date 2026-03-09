@@ -24,7 +24,6 @@ message:"Missing required fields"
 });
 }
 
-
 /* find QR tag */
 
 const tagResult = await pool.query(
@@ -42,7 +41,7 @@ message:"QR tag not found"
 });
 }
 
-const qrTagId = tagResult.rows[0].id;
+const tagId = tagResult.rows[0].id;
 
 
 /* create profile */
@@ -51,17 +50,15 @@ await pool.query(
 `
 INSERT INTO vehicle_profiles
 (
-qr_tag_id,
 owner_name,
 owner_mobile,
 vehicle_number,
 blood_group,
 emergency_contact
 )
-VALUES($1,$2,$3,$4,$5,$6)
+VALUES($1,$2,$3,$4,$5)
 `,
 [
-qrTagId,
 owner_name,
 mobile,
 vehicle_number,
@@ -79,9 +76,8 @@ UPDATE qr_tags
 SET status='active'
 WHERE id=$1
 `,
-[qrTagId]
+[tagId]
 );
-
 
 return res.json({
 message:"Tag activated successfully"
