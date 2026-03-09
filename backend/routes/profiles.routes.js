@@ -4,8 +4,17 @@ export default function publicRoutes(pool) {
 
 const router = express.Router();
 
+/* =========================
+HELPERS
+========================= */
+
 function normalize(code){
-return code?.trim() || null;
+if(!code) return null;
+return code.trim();
+}
+
+function isValidCode(code){
+return /^[a-zA-Z0-9\-]+$/.test(code);
 }
 
 async function getQR(code){
@@ -14,7 +23,8 @@ const result = await pool.query(
 `
 SELECT status, expires_at
 FROM qr_tags
-WHERE qr_code=$1
+WHERE qr_code = $1
+LIMIT 1
 `,
 [code]
 );
@@ -23,15 +33,15 @@ return result.rows[0] || null;
 
 }
 
-/* ===============================
+/* =========================
 QR SCAN ENTRY
-=============================== */
+========================= */
 
 router.get("/q/:code", async (req,res)=>{
 
 const code = normalize(req.params.code);
 
-if(!code){
+if(!code || !isValidCode(code)){
 return res.status(400).send("Invalid QR code");
 }
 
@@ -46,29 +56,44 @@ return res.status(404).send("QR not found");
 const frontend = process.env.FRONTEND_URL;
 
 if(!frontend){
-return res.status(500).send("Frontend URL not configured");
+console.error("FRONTEND_URL missing");
+return res.status(500).send("Server configuration error");
 }
 
-/* inactive tag */
+/* Prevent caching */
+
+res.set({
+"Cache-Control": "no-store",
+"Pragma": "no-cache"
+});
+
+/* =========================
+INACTIVE TAG
+========================= */
 
 if(qr.status === "inactive"){
 return res.redirect(`${frontend}/activate/${code}`);
 }
 
-/* expired */
+/* =========================
+EXPIRED TAG
+========================= */
 
 if(qr.expires_at && new Date(qr.expires_at) < new Date()){
 return res.redirect(`${frontend}/subscribe/${code}`);
 }
 
-/* active */
+/* =========================
+ACTIVE TAG
+========================= */
 
 return res.redirect(`${frontend}/emergency/${code}`);
 
 }catch(err){
 
-console.error("PUBLIC QR ERROR:",err);
-return res.status(500).send("Server error");
+console.error("QR PUBLIC ROUTE ERROR:", err);
+
+return res.status(500).send("Internal server error");
 
 }
 
