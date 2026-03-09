@@ -84,12 +84,14 @@ emergency_contact
 ]
 );
 
-/* activate tag */
+/* activate tag (required by DB constraint) */
 
 await client.query(
 `
 UPDATE qr_tags
-SET status='active'
+SET 
+status='active',
+activated_at = NOW()
 WHERE id=$1
 `,
 [tagId]
