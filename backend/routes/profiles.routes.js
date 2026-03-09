@@ -1,99 +1,66 @@
 import express from "express";
 
-export default function publicRoutes(pool) {
+export default function profileRoutes(pool){
 
 const router = express.Router();
 
-/* =========================
-HELPERS
-========================= */
-
-function normalize(code){
-if(!code) return null;
-return code.trim();
-}
-
-function isValidCode(code){
-return /^[a-zA-Z0-9\-]+$/.test(code);
-}
-
-async function getQR(code){
-
-const result = await pool.query(
-`
-SELECT status, expires_at
-FROM qr_tags
-WHERE qr_code = $1
-LIMIT 1
-`,
-[code]
-);
-
-return result.rows[0] || null;
-
-}
-
-/* =========================
-QR SCAN ENTRY
-========================= */
-
-router.get("/q/:code", async (req,res)=>{
-
-const code = normalize(req.params.code);
-
-if(!code || !isValidCode(code)){
-return res.status(400).send("Invalid QR code");
-}
+router.post("/:code", async (req,res)=>{
 
 try{
 
-const qr = await getQR(code);
+const { code } = req.params;
 
-if(!qr){
-return res.status(404).send("QR not found");
-}
+const {
+owner_name,
+mobile,
+vehicle_name,
+vehicle_number,
+blood_group,
+family_contact
+} = req.body;
 
-const frontend = process.env.FRONTEND_URL;
-
-if(!frontend){
-console.error("FRONTEND_URL missing");
-return res.status(500).send("Server configuration error");
-}
-
-/* Prevent caching */
-
-res.set({
-"Cache-Control": "no-store",
-"Pragma": "no-cache"
+if(!owner_name || !mobile || !vehicle_number){
+return res.status(400).json({
+message:"Missing required fields"
 });
-
-/* =========================
-INACTIVE TAG
-========================= */
-
-if(qr.status === "inactive"){
-return res.redirect(`${frontend}/activate/${code}`);
 }
 
-/* =========================
-EXPIRED TAG
-========================= */
+await pool.query(
+`
+INSERT INTO vehicle_profiles
+(
+qr_tag_id,
+owner_name,
+mobile,
+vehicle_name,
+vehicle_number,
+blood_group,
+family_contact
+)
+VALUES($1,$2,$3,$4,$5,$6,$7)
+`,
+[
+code,
+owner_name,
+mobile,
+vehicle_name,
+vehicle_number,
+blood_group,
+family_contact
+]
+);
 
-if(qr.expires_at && new Date(qr.expires_at) < new Date()){
-return res.redirect(`${frontend}/subscribe/${code}`);
-}
-
-/* =========================
-ACTIVE TAG
-========================= */
-
-return res.redirect(`${frontend}/emergency/${code}`);
+return res.json({
+message:"Profile created"
+});
 
 }catch(err){
 
-console.error("QR PUBLIC ROUTE ERROR:", err);
+console.error("PROFILE CREATE ERROR:",err);
 
-return res.status(500).send("Internal server error");
+return res.status(500).json({
+message:"Server error"
+});
 
 }
 
