@@ -24,13 +24,14 @@ message:"Missing required fields"
 });
 }
 
-/* 1️⃣ find QR tag */
+
+/* find QR tag */
 
 const tagResult = await pool.query(
 `
 SELECT id
 FROM qr_tags
-WHERE qr_code=$1
+WHERE qr_tag_id=$1
 `,
 [code]
 );
@@ -44,7 +45,7 @@ message:"QR tag not found"
 const qrTagId = tagResult.rows[0].id;
 
 
-/* 2️⃣ insert vehicle profile */
+/* create profile */
 
 await pool.query(
 `
@@ -52,7 +53,7 @@ INSERT INTO vehicle_profiles
 (
 qr_tag_id,
 owner_name,
-mobile,
+owner_mobile,
 vehicle_number,
 blood_group,
 emergency_contact
@@ -70,7 +71,7 @@ emergency_contact
 );
 
 
-/* 3️⃣ activate tag */
+/* activate tag */
 
 await pool.query(
 `
