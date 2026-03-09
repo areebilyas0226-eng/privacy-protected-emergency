@@ -49,13 +49,19 @@ if(!frontend){
 return res.status(500).send("Frontend URL not configured");
 }
 
+/* 🚫 NOT ACTIVATED */
+
 if(qr.status === "inactive"){
 return res.redirect(`${frontend}/activate/${code}`);
 }
 
+/* ⛔ EXPIRED */
+
 if(qr.expires_at && new Date(qr.expires_at) < new Date()){
 return res.redirect(`${frontend}/subscribe/${code}`);
 }
+
+/* ✅ ACTIVE */
 
 return res.redirect(`${frontend}/emergency/${code}`);
 

@@ -16,7 +16,7 @@ try{
 
 const qrResult = await pool.query(
 `
-SELECT id,status,expires_at,type
+SELECT id,status,expires_at,type,qr_code
 FROM qr_tags
 WHERE qr_code=$1
 `,
@@ -29,9 +29,15 @@ return res.status(404).json({message:"QR not found"});
 
 const qr = qrResult.rows[0];
 
+/* 🚫 NOT ACTIVATED */
+
 if(qr.status !== "active"){
-return res.status(403).json({message:"QR not activated"});
+return res.status(403).json({
+message:"QR not activated"
+});
 }
+
+/* ⛔ EXPIRED */
 
 if(qr.expires_at && new Date(qr.expires_at) < new Date()){
 return res.status(403).json({
@@ -74,10 +80,10 @@ VALUES($1,'scan',$2)
 );
 
 return res.json({
-type:qr.type,
-data:profile,
-allow_call:true,
-allow_sms:true
+qr_code: qr.qr_code,
+vehicle_number: profile.vehicle_number,
+model: profile.model,
+owner_mobile: profile.owner_mobile
 });
 
 }catch(err){
