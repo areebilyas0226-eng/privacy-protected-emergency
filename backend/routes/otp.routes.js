@@ -6,6 +6,10 @@ export default function otpRoutes(pool){
 
 const router = express.Router();
 
+/* =========================
+OTP RATE LIMIT
+========================= */
+
 const otpLimiter = rateLimit({
 windowMs: 10 * 60 * 1000,
 max: 5,
@@ -13,6 +17,9 @@ standardHeaders: true,
 legacyHeaders: false
 });
 
+/* =========================
+SEND OTP
+========================= */
 
 router.post("/send", otpLimiter, async (req,res)=>{
 
@@ -31,6 +38,8 @@ return res.status(400).json({message:"Invalid mobile"});
 const otp = generateOTP();
 const expires = otpExpiry();
 
+/* invalidate previous OTP */
+
 await pool.query(
 `
 UPDATE otp_verifications
@@ -41,16 +50,18 @@ AND verified=false
 [mobile]
 );
 
+/* store new OTP */
+
 await pool.query(
 `
 INSERT INTO otp_verifications
-(mobile,otp_code,expires_at,verified)
+(mobile, otp, expires_at, verified)
 VALUES($1,$2,$3,false)
 `,
-[mobile,otp,expires]
+[mobile, otp, expires]
 );
 
-console.log("OTP:",otp);
+console.log("OTP generated:", otp);
 
 return res.json({
 message:"OTP sent successfully"
@@ -66,34 +77,40 @@ return res.status(500).json({message:"Server error"});
 });
 
 
+/* =========================
+VERIFY OTP
+========================= */
+
 router.post("/verify", async(req,res)=>{
 
 try{
 
-const mobile=req.body?.mobile?.trim();
-const otp=req.body?.otp?.trim();
+const mobile = req.body?.mobile?.trim();
+const otp = req.body?.otp?.trim();
 
 if(!mobile || !otp){
 return res.status(400).json({message:"mobile and otp required"});
 }
 
-const result=await pool.query(
+const result = await pool.query(
 `
 SELECT id
 FROM otp_verifications
 WHERE mobile=$1
-AND otp_code=$2
-AND expires_at>NOW()
+AND otp=$2
+AND expires_at > NOW()
 AND verified=false
 ORDER BY created_at DESC
 LIMIT 1
 `,
-[mobile,otp]
+[mobile, otp]
 );
 
 if(!result.rows.length){
-return res.status(400).json({message:"Invalid OTP"});
+return res.status(400).json({message:"Invalid or expired OTP"});
 }
+
+/* mark OTP verified */
 
 await pool.query(
 `
@@ -104,7 +121,9 @@ WHERE id=$1
 [result.rows[0].id]
 );
 
-return res.json({message:"OTP verified"});
+return res.json({
+message:"OTP verified"
+});
 
 }catch(err){
 
