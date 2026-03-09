@@ -28,18 +28,6 @@ app.set("trust proxy", 1);
 const PORT = process.env.PORT || 8080;
 
 /* =========================
-RAILWAY HEALTHCHECK
-========================= */
-
-app.get("/health", (req, res) => {
-  res.status(200).send("OK");
-});
-
-app.get("/", (req, res) => {
-  res.status(200).send("OK");
-});
-
-/* =========================
 ENV VALIDATION
 ========================= */
 
@@ -58,12 +46,21 @@ for (const key of requiredEnv) {
 }
 
 /* =========================
-MIDDLEWARE
+SECURITY
 ========================= */
 
 app.use(helmet());
 app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
+
+/* =========================
+REQUEST LOGGING
+========================= */
+
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.originalUrl}`);
+  next();
+});
 
 /* =========================
 CORS
@@ -74,19 +71,37 @@ const allowedOrigins = [
   process.env.FRONTEND_URL
 ].filter(Boolean);
 
-const corsOptions = {
-  origin: (origin, cb) => {
-    if (!origin) return cb(null, true);
-    if (allowedOrigins.includes(origin)) return cb(null, true);
-    return cb(null, false);
-  },
-  credentials: true
-};
+app.use(
+  cors({
+    origin: (origin, cb) => {
 
-app.use(cors(corsOptions));
+      if (!origin) return cb(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return cb(null, true);
+      }
+
+      console.warn("Blocked by CORS:", origin);
+      return cb(null, false);
+    },
+    credentials: true
+  })
+);
 
 /* =========================
-RATE LIMIT
+HEALTHCHECK
+========================= */
+
+app.get("/health", (req, res) => {
+  res.status(200).send("OK");
+});
+
+app.get("/", (req, res) => {
+  res.status(200).send("OK");
+});
+
+/* =========================
+RATE LIMITERS
 ========================= */
 
 const publicLimiter = rateLimit({
@@ -109,25 +124,43 @@ API ROUTES
 
 app.use("/api", publicLimiter);
 
+/* QR */
+
 app.use("/api/qr", qrRoutes(pool));
-app.use("/api/profile", profileRoutes(pool));
+
+/* Emergency */
+
 app.use("/api/emergency", emergencyRoutes(pool));
+
+/* Profiles */
+
+app.use("/api/profile", profileRoutes(pool));
+
+/* OTP */
+
 app.use("/api/otp", otpRoutes(pool));
+
+/* Masked contact */
+
 app.use("/api/masked", maskedRoutes(pool));
+
+/* Tag activation */
+
+app.use("/api/tags", tagRoutes(pool));
+
+/* Admin */
 
 app.use("/api/admin/login", adminLoginLimiter);
 app.use("/api/admin", adminRoutes(pool));
 
-app.use("/api/tags", tagRoutes(pool));
-
 /* =========================
-PUBLIC ROUTES
+PUBLIC QR ROUTE
 ========================= */
 
 app.use("/", publicRoutes(pool));
 
 /* =========================
-404
+404 HANDLER
 ========================= */
 
 app.use((req, res) => {
@@ -139,15 +172,19 @@ ERROR HANDLER
 ========================= */
 
 app.use((err, req, res, next) => {
-  console.error("Server error:", err.message);
+
+  console.error("Server error:", err?.message || err);
 
   if (err.type === "entity.parse.failed") {
-    return res.status(400).json({ message: "Invalid JSON body" });
+    return res.status(400).json({
+      message: "Invalid JSON body"
+    });
   }
 
   res.status(500).json({
     message: "Internal server error"
   });
+
 });
 
 /* =========================
@@ -159,7 +196,7 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 });
 
 /* =========================
-DB CONNECTION CHECK
+DATABASE CHECK
 ========================= */
 
 (async () => {
@@ -167,7 +204,7 @@ DB CONNECTION CHECK
     await pool.query("SELECT 1");
     console.log("Database connected");
   } catch (err) {
-    console.error("Database connection failed:", err);
+    console.error("Database connection failed:", err.message);
   }
 })();
 
@@ -176,18 +213,22 @@ GRACEFUL SHUTDOWN
 ========================= */
 
 const shutdown = async () => {
+
   console.log("Shutdown signal received");
 
   server.close(async () => {
+
     try {
       await pool.end();
       console.log("Database pool closed");
     } catch (err) {
-      console.error("Shutdown DB error:", err);
+      console.error("Shutdown DB error:", err.message);
     }
 
     process.exit(0);
+
   });
+
 };
 
 process.on("SIGTERM", shutdown);
