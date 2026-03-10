@@ -44,38 +44,46 @@ WHERE qr_code=$1
 );
 
 if (!tagResult.rows.length) {
+
 await client.query("ROLLBACK");
+
 return res.status(404).json({
 message: "QR tag not found"
 });
+
 }
 
-const tagId = tagResult.rows[0].id;
+const tag = tagResult.rows[0];
 
 /* prevent double activation */
 
-if (tagResult.rows[0].status === "active") {
+if (tag.status === "active") {
+
 await client.query("ROLLBACK");
+
 return res.status(400).json({
-message: "Tag already activated"
+message: "already_activated"
 });
+
 }
 
-/* create vehicle profile */
+/* create vehicle profile linked with tag */
 
 await client.query(
 `
 INSERT INTO vehicle_profiles
 (
+qr_tag_id,
 owner_name,
 owner_mobile,
 vehicle_number,
 blood_group,
 emergency_contact
 )
-VALUES ($1,$2,$3,$4,$5)
+VALUES ($1,$2,$3,$4,$5,$6)
 `,
 [
+tag.id,
 owner_name,
 mobile,
 vehicle_number,
@@ -84,20 +92,18 @@ emergency_contact
 ]
 );
 
-/* activate tag (required by DB constraint) */
+/* activate tag */
 
 await client.query(
 `
 UPDATE qr_tags
-SET 
+SET
 status='active',
 activated_at = NOW()
 WHERE id=$1
 `,
-[tagId]
+[tag.id]
 );
-
-/* commit */
 
 await client.query("COMMIT");
 
