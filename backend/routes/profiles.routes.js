@@ -67,7 +67,7 @@ message: "already_activated"
 
 }
 
-/* create vehicle profile linked with tag */
+/* create vehicle profile */
 
 await client.query(
 `
@@ -92,14 +92,16 @@ emergency_contact
 ]
 );
 
-/* activate tag */
+/* activate tag with 1 year validity */
 
 await client.query(
 `
 UPDATE qr_tags
 SET
 status='active',
-activated_at = NOW()
+plan_type='yearly',
+activated_at = NOW(),
+expires_at = NOW() + INTERVAL '12 months'
 WHERE id=$1
 `,
 [tag.id]

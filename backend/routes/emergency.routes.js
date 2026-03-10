@@ -4,10 +4,6 @@ export default function emergencyRoutes(pool){
 
 const router = express.Router();
 
-/* =====================
-EMERGENCY DATA
-===================== */
-
 router.get("/:code", async(req,res)=>{
 
 const { code } = req.params;
@@ -20,7 +16,6 @@ SELECT
 q.id,
 q.status,
 q.expires_at,
-q.type,
 q.qr_code,
 
 p.owner_name,
@@ -46,25 +41,21 @@ return res.status(404).json({message:"QR not found"});
 
 const qr = result.rows[0];
 
-
-/* 🚫 NOT ACTIVATED */
+/* NOT ACTIVATED */
 
 if(qr.status !== "active"){
 return res.status(403).json({
-message:"QR not activated"
+status:"inactive"
 });
 }
 
-
-/* ⛔ EXPIRED */
+/* EXPIRED */
 
 if(qr.expires_at && new Date(qr.expires_at) < new Date()){
-return res.status(403).json({
-status:"expired",
-message:"Subscription expired"
+return res.json({
+status:"expired"
 });
 }
-
 
 /* PROFILE CHECK */
 
@@ -73,7 +64,6 @@ return res.status(404).json({
 message:"Profile not found"
 });
 }
-
 
 /* LOG SCAN */
 
@@ -86,8 +76,9 @@ VALUES($1,'scan',$2)
 [qr.id,req.ip]
 );
 
-
 return res.json({
+
+status:"active",
 
 qr_code: qr.qr_code,
 
