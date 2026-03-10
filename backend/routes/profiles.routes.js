@@ -20,25 +20,20 @@ blood_group,
 emergency_contact
 } = req.body;
 
-/* validate input */
-
 if (!owner_name || !mobile || !vehicle_number) {
-return res.status(400).json({
-message: "Missing required fields"
-});
+return res.status(400).json({ message: "Missing required fields" });
 }
-
-/* start transaction */
 
 await client.query("BEGIN");
 
-/* find QR tag */
+/* find tag */
 
 const tagResult = await client.query(
 `
 SELECT id,status
 FROM qr_tags
 WHERE qr_code=$1
+FOR UPDATE
 `,
 [code]
 );
@@ -47,9 +42,7 @@ if (!tagResult.rows.length) {
 
 await client.query("ROLLBACK");
 
-return res.status(404).json({
-message: "QR tag not found"
-});
+return res.status(404).json({ message: "QR tag not found" });
 
 }
 
@@ -61,13 +54,13 @@ if (tag.status === "active") {
 
 await client.query("ROLLBACK");
 
-return res.status(400).json({
+return res.status(409).json({
 message: "already_activated"
 });
 
 }
 
-/* create vehicle profile */
+/* create profile */
 
 await client.query(
 `
@@ -92,7 +85,7 @@ emergency_contact
 ]
 );
 
-/* activate tag with 1 year validity */
+/* activate tag */
 
 await client.query(
 `
@@ -100,8 +93,8 @@ UPDATE qr_tags
 SET
 status='active',
 plan_type='yearly',
-activated_at = NOW(),
-expires_at = NOW() + INTERVAL '12 months'
+activated_at=NOW(),
+expires_at=NOW() + INTERVAL '12 months'
 WHERE id=$1
 `,
 [tag.id]

@@ -6,8 +6,6 @@ const router = express.Router();
 
 router.get("/:code", async(req,res)=>{
 
-const { code } = req.params;
-
 try{
 
 const result = await pool.query(
@@ -26,13 +24,11 @@ p.blood_group,
 p.emergency_contact
 
 FROM qr_tags q
-
 LEFT JOIN vehicle_profiles p
 ON q.id = p.qr_tag_id
-
 WHERE q.qr_code=$1
 `,
-[code]
+[req.params.code]
 );
 
 if(!result.rows.length){
@@ -41,23 +37,25 @@ return res.status(404).json({message:"QR not found"});
 
 const qr = result.rows[0];
 
-/* NOT ACTIVATED */
+const now = new Date();
+
+/* inactive */
 
 if(qr.status !== "active"){
-return res.status(403).json({
+return res.json({
 status:"inactive"
 });
 }
 
-/* EXPIRED */
+/* expired */
 
-if(qr.expires_at && new Date(qr.expires_at) < new Date()){
+if(qr.expires_at && new Date(qr.expires_at) < now){
 return res.json({
 status:"expired"
 });
 }
 
-/* PROFILE CHECK */
+/* profile missing */
 
 if(!qr.owner_mobile){
 return res.status(404).json({
@@ -65,7 +63,7 @@ message:"Profile not found"
 });
 }
 
-/* LOG SCAN */
+/* log scan */
 
 await pool.query(
 `
@@ -80,16 +78,16 @@ return res.json({
 
 status:"active",
 
-qr_code: qr.qr_code,
+qr_code:qr.qr_code,
 
-owner_name: qr.owner_name,
-owner_mobile: qr.owner_mobile,
+owner_name:qr.owner_name,
+owner_mobile:qr.owner_mobile,
 
-vehicle_number: qr.vehicle_number,
-model: qr.model,
+vehicle_number:qr.vehicle_number,
+model:qr.model,
 
-blood_group: qr.blood_group,
-emergency_contact: qr.emergency_contact
+blood_group:qr.blood_group,
+emergency_contact:qr.emergency_contact
 
 });
 
@@ -97,9 +95,7 @@ emergency_contact: qr.emergency_contact
 
 console.error("EMERGENCY ERROR:",err);
 
-res.status(500).json({
-message:"Server error"
-});
+res.status(500).json({message:"Server error"});
 
 }
 
