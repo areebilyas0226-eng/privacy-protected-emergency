@@ -13,6 +13,7 @@ useEffect(()=>{
 fetchTags();
 },[]);
 
+
 /* ======================
 FETCH INVENTORY
 ====================== */
@@ -38,6 +39,7 @@ setTags([]);
 
 }
 
+
 /* ======================
 EXTEND SUBSCRIPTION
 ====================== */
@@ -50,11 +52,11 @@ if(!months) return;
 
 try{
 
-const res = await fetch(`${API_BASE}/api/admin/extend/${id}`,{
+const res = await fetch(`${API_BASE}/api/admin/renew/${id}`,{
 method:"POST",
 headers:{ "Content-Type":"application/json"},
 credentials:"include",
-body:JSON.stringify({months})
+body:JSON.stringify({plan:`${months}month`})
 });
 
 if(!res.ok) throw new Error();
@@ -66,6 +68,7 @@ console.error(err);
 }
 
 }
+
 
 /* ======================
 VIEW QR
@@ -81,6 +84,7 @@ const qrImage =
 window.open(qrImage,"_blank");
 
 }
+
 
 /* ======================
 FILTERING
@@ -105,6 +109,7 @@ statusFilter ? status === statusFilter : true;
 return matchesSearch && matchesStatus;
 
 });
+
 
 return(
 
@@ -145,13 +150,17 @@ onChange={(e)=>setStatusFilter(e.target.value)}
 <thead>
 
 <tr>
-<th style={styles.th}>QR Code</th>
-<th style={styles.th}>Batch</th>
+
+<th style={styles.th}>Tag ID</th>
+<th style={styles.th}>Owner</th>
+<th style={styles.th}>Mobile</th>
+<th style={styles.th}>Vehicle</th>
 <th style={styles.th}>Status</th>
 <th style={styles.th}>Activated</th>
 <th style={styles.th}>Expires</th>
 <th style={styles.th}>View</th>
 <th style={styles.th}>Action</th>
+
 </tr>
 
 </thead>
@@ -161,7 +170,7 @@ onChange={(e)=>setStatusFilter(e.target.value)}
 {filteredTags.length===0 ? (
 
 <tr>
-<td colSpan="7" style={styles.empty}>
+<td colSpan="9" style={styles.empty}>
 No inventory found
 </td>
 </tr>
@@ -176,11 +185,21 @@ new Date(tag.expires_at) < new Date();
 
 return(
 
-<tr key={tag.id}>
+<tr key={tag.tag_id}>
 
-<td style={styles.qr}>{tag.qr_code}</td>
+<td style={styles.qr}>{tag.tag_id}</td>
 
-<td style={styles.td}>{tag.batch_name || "-"}</td>
+<td style={styles.td}>
+{tag.owner_name || "-"}
+</td>
+
+<td style={styles.td}>
+{tag.owner_mobile || "-"}
+</td>
+
+<td style={styles.td}>
+{tag.vehicle_number || "-"}
+</td>
 
 <td style={styles.td}>
 {expired ? "expired" : tag.status}
@@ -211,7 +230,7 @@ View
 
 <button
 style={styles.extendBtn}
-onClick={()=>extendSubscription(tag.id)}
+onClick={()=>extendSubscription(tag.tag_id)}
 >
 Extend
 </button>
@@ -239,8 +258,12 @@ Extend
 
 }
 
+
+
 const styles={
+
 wrapper:{display:"flex",flexDirection:"column",gap:"30px"},
+
 card:{
 background:"transparent",
 padding:"25px",
@@ -248,8 +271,11 @@ borderRadius:"14px",
 backdropFilter:"blur(10px)",
 border:"1px solid rgba(255,255,255,0.2)"
 },
+
 heading:{marginBottom:"20px",color:"#000"},
+
 controls:{display:"flex",gap:"15px",marginBottom:"20px"},
+
 search:{
 padding:"10px",
 borderRadius:"8px",
@@ -257,29 +283,40 @@ border:"1px solid #ccc",
 width:"250px",
 background:"rgba(255,255,255,0.6)"
 },
+
 filter:{
 padding:"10px",
 borderRadius:"8px",
 border:"1px solid #ccc",
 background:"rgba(255,255,255,0.6)"
 },
-table:{width:"100%",borderCollapse:"collapse",marginTop:"10px",color:"#000"},
+
+table:{
+width:"100%",
+borderCollapse:"collapse",
+marginTop:"10px",
+color:"#000"
+},
+
 th:{
 textAlign:"left",
 padding:"12px",
 borderBottom:"2px solid rgba(0,0,0,0.2)",
 fontWeight:"600"
 },
+
 td:{
 padding:"12px",
 borderBottom:"1px solid rgba(0,0,0,0.1)"
 },
+
 qr:{
 padding:"12px",
 borderBottom:"1px solid rgba(0,0,0,0.1)",
 fontFamily:"monospace",
 wordBreak:"break-all"
 },
+
 viewBtn:{
 padding:"6px 12px",
 borderRadius:"6px",
@@ -288,6 +325,7 @@ background:"#3b82f6",
 color:"#fff",
 cursor:"pointer"
 },
+
 extendBtn:{
 padding:"6px 12px",
 borderRadius:"6px",
@@ -296,5 +334,11 @@ background:"#22c55e",
 color:"#fff",
 cursor:"pointer"
 },
-empty:{textAlign:"center",padding:"20px",color:"#000"}
+
+empty:{
+textAlign:"center",
+padding:"20px",
+color:"#000"
+}
+
 };
