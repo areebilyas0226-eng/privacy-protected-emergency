@@ -31,12 +31,17 @@ if(qr.expires_at && new Date(qr.expires_at)<new Date()){
 return res.json({status:"expired"});
 }
 
-res.json(qr);
+return res.json({
+status:qr.status
+});
 
 }catch(err){
 
 console.error(err);
-res.status(500).json({message:"Server error"});
+
+res.status(500).json({
+message:"Server error"
+});
 
 }
 

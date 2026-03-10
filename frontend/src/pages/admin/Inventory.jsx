@@ -33,8 +33,11 @@ const data = await res.json();
 setTags(Array.isArray(data)?data:[]);
 
 }catch(err){
+
 console.error(err);
+
 setTags([]);
+
 }
 
 }
@@ -64,7 +67,9 @@ if(!res.ok) throw new Error();
 fetchTags();
 
 }catch(err){
+
 console.error(err);
+
 }
 
 }
@@ -92,10 +97,16 @@ FILTERING
 
 const filteredTags = tags.filter(tag=>{
 
-const code = tag?.qr_code || "";
+const query = search.toLowerCase();
+
+const code = tag?.qr_code?.toLowerCase() || "";
+const mobile = tag?.owner_mobile?.toLowerCase() || "";
+const vehicle = tag?.vehicle_number?.toLowerCase() || "";
 
 const matchesSearch =
-code.toLowerCase().includes(search.toLowerCase());
+code.includes(query) ||
+mobile.includes(query) ||
+vehicle.includes(query);
 
 let status = tag.status;
 
@@ -124,7 +135,7 @@ return(
 <div style={styles.controls}>
 
 <input
-placeholder="Search QR Code"
+placeholder="Search Phone / Vehicle / QR"
 style={styles.search}
 value={search}
 onChange={(e)=>setSearch(e.target.value)}
@@ -189,17 +200,11 @@ return(
 
 <td style={styles.qr}>{tag.tag_id}</td>
 
-<td style={styles.td}>
-{tag.owner_name || "-"}
-</td>
+<td style={styles.td}>{tag.owner_name || "-"}</td>
 
-<td style={styles.td}>
-{tag.owner_mobile || "-"}
-</td>
+<td style={styles.td}>{tag.owner_mobile || "-"}</td>
 
-<td style={styles.td}>
-{tag.vehicle_number || "-"}
-</td>
+<td style={styles.td}>{tag.vehicle_number || "-"}</td>
 
 <td style={styles.td}>
 {expired ? "expired" : tag.status}
@@ -257,7 +262,6 @@ Extend
 );
 
 }
-
 
 
 const styles={

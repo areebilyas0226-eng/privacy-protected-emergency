@@ -14,20 +14,38 @@ const { code } = req.params;
 
 try{
 
-const qrResult = await pool.query(
+const result = await pool.query(
 `
-SELECT id,status,expires_at,type,qr_code
-FROM qr_tags
-WHERE qr_code=$1
+SELECT
+q.id,
+q.status,
+q.expires_at,
+q.type,
+q.qr_code,
+
+p.owner_name,
+p.owner_mobile,
+p.vehicle_number,
+p.model,
+p.blood_group,
+p.emergency_contact
+
+FROM qr_tags q
+
+LEFT JOIN vehicle_profiles p
+ON q.id = p.qr_tag_id
+
+WHERE q.qr_code=$1
 `,
 [code]
 );
 
-if(!qrResult.rows.length){
+if(!result.rows.length){
 return res.status(404).json({message:"QR not found"});
 }
 
-const qr = qrResult.rows[0];
+const qr = result.rows[0];
+
 
 /* 🚫 NOT ACTIVATED */
 
@@ -36,6 +54,7 @@ return res.status(403).json({
 message:"QR not activated"
 });
 }
+
 
 /* ⛔ EXPIRED */
 
@@ -46,50 +65,50 @@ message:"Subscription expired"
 });
 }
 
-let profile=null;
 
-if(qr.type==="vehicle"){
+/* PROFILE CHECK */
 
-const result = await pool.query(
-`
-SELECT vehicle_number,model,owner_mobile
-FROM vehicle_profiles
-WHERE qr_tag_id=$1
-`,
-[qr.id]
-);
-
-if(result.rows.length){
-profile=result.rows[0];
+if(!qr.owner_mobile){
+return res.status(404).json({
+message:"Profile not found"
+});
 }
 
-}
 
-if(!profile){
-return res.status(404).json({message:"Profile not found"});
-}
-
-/* log scan */
+/* LOG SCAN */
 
 await pool.query(
 `
-INSERT INTO emergency_logs(qr_tag_id,action_type,caller_ip)
+INSERT INTO emergency_logs
+(qr_tag_id,action_type,caller_ip)
 VALUES($1,'scan',$2)
 `,
 [qr.id,req.ip]
 );
 
+
 return res.json({
+
 qr_code: qr.qr_code,
-vehicle_number: profile.vehicle_number,
-model: profile.model,
-owner_mobile: profile.owner_mobile
+
+owner_name: qr.owner_name,
+owner_mobile: qr.owner_mobile,
+
+vehicle_number: qr.vehicle_number,
+model: qr.model,
+
+blood_group: qr.blood_group,
+emergency_contact: qr.emergency_contact
+
 });
 
 }catch(err){
 
 console.error("EMERGENCY ERROR:",err);
-res.status(500).json({message:"Server error"});
+
+res.status(500).json({
+message:"Server error"
+});
 
 }
 
