@@ -25,25 +25,7 @@ APP INIT
 const app = express();
 app.set("trust proxy", 1);
 
-const PORT = process.env.PORT;
-
-/* =========================
-ENV VALIDATION
-========================= */
-
-const requiredEnv = [
-  "DATABASE_URL",
-  "ADMIN_EMAIL",
-  "ADMIN_PASSWORD_HASH",
-  "JWT_SECRET"
-];
-
-for (const key of requiredEnv) {
-  if (!process.env[key]) {
-    console.error(`${key} not defined`);
-    process.exit(1);
-  }
-}
+const PORT = process.env.PORT || 8080;
 
 /* =========================
 SECURITY
@@ -58,7 +40,7 @@ REQUEST LOGGING
 ========================= */
 
 app.use((req, res, next) => {
-  console.log(`${req.method} ${req.originalUrl}`);
+  console.log(req.method, req.originalUrl);
   next();
 });
 
@@ -78,7 +60,7 @@ app.use(
       if (allowedOrigins.includes(origin)) return cb(null, true);
 
       console.warn("Blocked by CORS:", origin);
-      return cb(new Error("Not allowed by CORS"));
+      return cb(null, false);
     },
     credentials: true
   })
@@ -89,36 +71,32 @@ HEALTHCHECK
 ========================= */
 
 app.get("/health", (req, res) => {
-  res.send("ok");
+  res.status(200).send("OK");
 });
 
 app.get("/", (req, res) => {
-  res.send("running");
+  res.status(200).send("API Running");
 });
 
 /* =========================
-RATE LIMITERS
+RATE LIMIT
 ========================= */
 
 const publicLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300,
-  standardHeaders: true,
-  legacyHeaders: false
+  max: 300
 });
 
 const adminLoginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
-  standardHeaders: true,
-  legacyHeaders: false
+  max: 5
 });
 
-/* =========================
-API ROUTES
-========================= */
-
 app.use("/api", publicLimiter);
+
+/* =========================
+ROUTES
+========================= */
 
 app.use("/api/qr", qrRoutes(pool));
 app.use("/api/emergency", emergencyRoutes(pool));
@@ -130,14 +108,10 @@ app.use("/api/tags", tagRoutes(pool));
 app.use("/api/admin/login", adminLoginLimiter);
 app.use("/api/admin", adminRoutes(pool));
 
-/* =========================
-PUBLIC QR ROUTE
-========================= */
-
 app.use("/", publicRoutes(pool));
 
 /* =========================
-404 HANDLER
+404
 ========================= */
 
 app.use((req, res) => {
@@ -149,53 +123,51 @@ ERROR HANDLER
 ========================= */
 
 app.use((err, req, res, next) => {
-  console.error("Server error:", err?.message || err);
+  console.error("Server error:", err);
 
-  if (err.type === "entity.parse.failed") {
-    return res.status(400).json({ message: "Invalid JSON body" });
-  }
-
-  res.status(500).json({ message: "Internal server error" });
+  res.status(500).json({
+    message: "Internal server error"
+  });
 });
 
 /* =========================
 START SERVER
 ========================= */
 
-const server = app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on port ${PORT}`);
-});
-
-/* =========================
-DATABASE CHECK (BACKGROUND)
-========================= */
-
-(async () => {
+const startServer = async () => {
   try {
+
     await pool.query("SELECT 1");
     console.log("Database connected");
+
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log("Server running on port", PORT);
+    });
+
   } catch (err) {
-    console.error("Database connection failed:", err.message);
+    console.error("Database connection failed:", err);
+    process.exit(1);
   }
-})();
+};
+
+startServer();
 
 /* =========================
 GRACEFUL SHUTDOWN
 ========================= */
 
 const shutdown = async () => {
+
   console.log("Shutdown signal received");
 
-  server.close(async () => {
-    try {
-      await pool.end();
-      console.log("Database pool closed");
-    } catch (err) {
-      console.error("Shutdown DB error:", err.message);
-    }
+  try {
+    await pool.end();
+    console.log("Database pool closed");
+  } catch (err) {
+    console.error("Shutdown DB error:", err);
+  }
 
-    process.exit(0);
-  });
+  process.exit(0);
 };
 
 process.on("SIGTERM", shutdown);
