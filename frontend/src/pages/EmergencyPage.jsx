@@ -10,7 +10,7 @@ export default function EmergencyPage() {
 
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
 
@@ -40,7 +40,7 @@ export default function EmergencyPage() {
       } catch (err) {
         setError(err.message);
       } finally {
-        setLoading(false);
+        setLoading(true);
       }
 
     }
@@ -49,7 +49,32 @@ export default function EmergencyPage() {
 
   }, [code, navigate]);
 
-  if (loading) {
+
+
+  /* ===============================
+  CALL OWNER USING TWILIO API
+  =============================== */
+
+  const callOwner = async () => {
+
+    try {
+
+      await fetch(`${API_BASE}/api/call/owner/${code}`, {
+        method: "POST"
+      });
+
+      alert("Connecting call to vehicle owner...");
+
+    } catch (err) {
+
+      alert("Unable to connect call");
+
+    }
+
+  };
+
+
+  if (!loading) {
     return <h2 style={{ padding: 40 }}>Loading...</h2>;
   }
 
@@ -80,7 +105,7 @@ export default function EmergencyPage() {
         Emergency Information
       </h1>
 
-      {/* TRANSPARENT GLASS CARD */}
+      {/* GLASS CARD */}
       <div
         style={{
           borderRadius: 14,
@@ -94,7 +119,8 @@ export default function EmergencyPage() {
         }}
       >
 
-        <p><strong>QR Code:</strong> {data?.qr_code || "N/A"}</p>
+        {/* QR CODE REMOVED */}
+
         <p><strong>Vehicle Number:</strong> {data?.vehicle_number || "N/A"}</p>
         <p><strong>Owner Name:</strong> {data?.owner_name || "N/A"}</p>
         <p><strong>Blood Group:</strong> {data?.blood_group || "N/A"}</p>
@@ -111,21 +137,25 @@ export default function EmergencyPage() {
         }}
       >
 
-        <a
-          href={`tel:${data?.owner_mobile}`}
+        {/* CALL OWNER VIA TWILIO */}
+
+        <button
+          onClick={callOwner}
           style={{
             background: "#e53935",
             color: "white",
             padding: "16px",
-            textAlign: "center",
             borderRadius: 10,
-            textDecoration: "none",
+            border: "none",
             fontWeight: "bold",
-            fontSize: 16
+            fontSize: 16,
+            cursor: "pointer"
           }}
         >
-          Call Owner
-        </a>
+          Contact Vehicle Owner
+        </button>
+
+        {/* EMERGENCY CONTACT */}
 
         <a
           href={`tel:${data?.emergency_contact}`}
