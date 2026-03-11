@@ -3,9 +3,9 @@ dotenv.config();
 
 import express from "express";
 import cors from "cors";
-import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
+import rateLimit from "express-rate-limit";
 
 import pool from "./db.js";
 
@@ -25,19 +25,16 @@ APP INIT
 const app = express();
 app.set("trust proxy", 1);
 
+/* IMPORTANT: Railway port */
 const PORT = process.env.PORT || 8080;
 
 /* =========================
-SECURITY
+MIDDLEWARE
 ========================= */
 
 app.use(helmet());
 app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
-
-/* =========================
-REQUEST LOGGING
-========================= */
 
 app.use((req, res, next) => {
   console.log(req.method, req.originalUrl);
@@ -58,8 +55,6 @@ app.use(
     origin: (origin, cb) => {
       if (!origin) return cb(null, true);
       if (allowedOrigins.includes(origin)) return cb(null, true);
-
-      console.warn("Blocked by CORS:", origin);
       return cb(null, false);
     },
     credentials: true
@@ -75,7 +70,7 @@ app.get("/health", (req, res) => {
 });
 
 app.get("/", (req, res) => {
-  res.status(200).send("API Running");
+  res.send("API running");
 });
 
 /* =========================
@@ -87,7 +82,7 @@ const publicLimiter = rateLimit({
   max: 300
 });
 
-const adminLoginLimiter = rateLimit({
+const adminLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5
 });
@@ -105,7 +100,7 @@ app.use("/api/otp", otpRoutes(pool));
 app.use("/api/masked", maskedRoutes(pool));
 app.use("/api/tags", tagRoutes(pool));
 
-app.use("/api/admin/login", adminLoginLimiter);
+app.use("/api/admin/login", adminLimiter);
 app.use("/api/admin", adminRoutes(pool));
 
 app.use("/", publicRoutes(pool));
@@ -123,34 +118,26 @@ ERROR HANDLER
 ========================= */
 
 app.use((err, req, res, next) => {
-  console.error("Server error:", err);
-
-  res.status(500).json({
-    message: "Internal server error"
-  });
+  console.error(err);
+  res.status(500).json({ message: "Internal server error" });
 });
 
 /* =========================
 START SERVER
 ========================= */
 
-const startServer = async () => {
-  try {
+app.listen(PORT, "0.0.0.0", async () => {
 
+  console.log("Server started on port", PORT);
+
+  try {
     await pool.query("SELECT 1");
     console.log("Database connected");
-
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log("Server running on port", PORT);
-    });
-
   } catch (err) {
     console.error("Database connection failed:", err);
-    process.exit(1);
   }
-};
 
-startServer();
+});
 
 /* =========================
 GRACEFUL SHUTDOWN
