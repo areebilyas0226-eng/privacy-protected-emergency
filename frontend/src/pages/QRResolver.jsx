@@ -3,96 +3,119 @@ import { useEffect, useRef } from "react";
 
 const API_BASE = import.meta.env.VITE_API_URL;
 
-export default function QRResolver(){
+export default function QRResolver() {
 
-const { code } = useParams();
-const navigate = useNavigate();
-const resolved = useRef(false);
+  const { code } = useParams();
+  const navigate = useNavigate();
+  const resolved = useRef(false);
 
-useEffect(()=>{
+  useEffect(() => {
 
-if(!code || resolved.current) return;
+    if (!code || resolved.current) return;
 
-resolved.current = true;
+    resolved.current = true;
 
-async function resolveQR(){
+    async function resolveQR() {
 
-try{
+      try {
 
-const res = await fetch(`${API_BASE}/api/qr/${code}`);
+        const res = await fetch(`${API_BASE}/api/qr/${code}`);
 
-if(!res.ok){
-navigate(`/expired/${code}`,{replace:true});
-return;
-}
+        if (!res.ok) {
+          navigate(`/expired/${code}`, { replace: true });
+          return;
+        }
 
-const data = await res.json();
+        const data = await res.json();
 
-/* inactive → show activate page */
+        const type = data.qr_type || "vehicle";
 
-if(data.status === "inactive"){
-navigate(`/activate/${code}`,{replace:true});
-return;
-}
+        const activateRoute =
+          type === "pet"
+            ? `/pet-activate/${code}`
+            : `/vehicle-activate/${code}`;
 
-/* activation started → go to register */
+        const registerRoute =
+          type === "pet"
+            ? `/pet-register/${code}`
+            : `/vehicle-register/${code}`;
 
-if(data.status === "activation_pending"){
-navigate(`/register/${code}`,{replace:true});
-return;
-}
+        const emergencyRoute =
+          type === "pet"
+            ? `/pet-emergency/${code}`
+            : `/vehicle-emergency/${code}`;
 
-/* active tag */
+        /* =========================
+        inactive → activation page
+        ========================= */
 
-if(data.status === "active"){
+        if (data.status === "inactive") {
+          navigate(activateRoute, { replace: true });
+          return;
+        }
 
-const expiry = data.expires_at ? new Date(data.expires_at) : null;
-const now = new Date();
+        /* =========================
+        activation started
+        ========================= */
 
-if(!expiry){
-navigate(`/emergency/${code}`,{replace:true});
-return;
-}
+        if (data.status === "activation_pending") {
+          navigate(registerRoute, { replace: true });
+          return;
+        }
 
-if(expiry.getTime() > now.getTime()){
-navigate(`/emergency/${code}`,{replace:true});
-return;
-}
+        /* =========================
+        active QR
+        ========================= */
 
-navigate(`/subscription/${code}`,{replace:true});
-return;
+        if (data.status === "active") {
 
-}
+          const expiry = data.expires_at ? new Date(data.expires_at) : null;
+          const now = new Date();
 
-/* fallback */
+          if (!expiry) {
+            navigate(emergencyRoute, { replace: true });
+            return;
+          }
 
-navigate(`/expired/${code}`,{replace:true});
+          if (expiry.getTime() > now.getTime()) {
+            navigate(emergencyRoute, { replace: true });
+            return;
+          }
 
-}catch(err){
+          navigate(`/subscription/${code}`, { replace: true });
+          return;
+        }
 
-console.error(err);
-navigate(`/expired/${code}`,{replace:true});
+        /* =========================
+        fallback
+        ========================= */
 
-}
+        navigate(`/expired/${code}`, { replace: true });
 
-}
+      } catch (err) {
 
-resolveQR();
+        console.error(err);
+        navigate(`/expired/${code}`, { replace: true });
 
-},[code,navigate]);
+      }
 
-return(
+    }
 
-<div style={{
-minHeight:"100vh",
-display:"flex",
-alignItems:"center",
-justifyContent:"center",
-fontSize:"18px"
-}}>
-Resolving QR...
-</div>
+    resolveQR();
 
-);
+  }, [code, navigate]);
 
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: "18px"
+      }}
+    >
+      Resolving QR...
+    </div>
+  );
 }
