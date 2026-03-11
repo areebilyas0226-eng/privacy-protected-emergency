@@ -7,6 +7,7 @@ import EmergencyPage from "./pages/EmergencyPage";
 import ExpiredPage from "./pages/ExpiredPage";
 import RegisterPage from "./pages/RegisterPage";
 import SubscriptionPage from "./pages/SubscriptionPage";
+import PetRegisterPage from "./pages/PetRegisterPage";
 
 import AdminDashboard from "./pages/admin/Dashboard";
 import OrdersPage from "./pages/admin/Order";
@@ -22,54 +23,54 @@ Protected Route
 
 function ProtectedRoute({ children }) {
 
-const [loading, setLoading] = useState(true);
-const [isAuth, setIsAuth] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [isAuth, setIsAuth] = useState(false);
 
-useEffect(() => {
+  useEffect(() => {
 
-async function checkAuth() {
+    async function checkAuth() {
 
-try {
+      try {
 
-const res = await fetch(`${API_BASE}/api/admin/me`, {
-credentials: "include"
-});
+        const res = await fetch(`${API_BASE}/api/admin/me`, {
+          credentials: "include"
+        });
 
-setIsAuth(res.ok);
+        setIsAuth(res.ok);
 
-} catch {
+      } catch {
 
-setIsAuth(false);
+        setIsAuth(false);
 
-}
+      }
 
-setLoading(false);
+      setLoading(false);
 
-}
+    }
 
-checkAuth();
+    checkAuth();
 
-}, []);
+  }, []);
 
-if (loading) {
+  if (loading) {
 
-return (
-<div
-style={{
-minHeight: "100vh",
-display: "flex",
-justifyContent: "center",
-alignItems: "center",
-fontSize: "18px"
-}}
->
-Checking authentication...
-</div>
-);
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          fontSize: "18px"
+        }}
+      >
+        Checking authentication...
+      </div>
+    );
 
-}
+  }
 
-return isAuth ? children : <Navigate to="/admin-login" replace />;
+  return isAuth ? children : <Navigate to="/admin-login" replace />;
 
 }
 
@@ -79,67 +80,82 @@ APP ROUTER
 
 function App() {
 
-return (
+  return (
 
-<BrowserRouter>
+    <BrowserRouter>
 
-<Routes>
+      <Routes>
 
-<Route path="/" element={<Navigate to="/admin-login" replace />} />
+        {/* ======================
+        DEFAULT
+        ====================== */}
 
-{/* ======================
-QR FLOW
-====================== */}
+        <Route path="/" element={<Navigate to="/admin-login" replace />} />
 
-<Route path="/:code" element={<QRResolver />} />
-<Route path="/qr/:code" element={<QRResolver />} />
+        {/* ======================
+        QR FLOW
+        ====================== */}
 
-<Route path="/register/:code" element={<RegisterPage />} />
-<Route path="/activate/:code" element={<ActivatePage />} />
-<Route path="/emergency/:code" element={<EmergencyPage />} />
-<Route path="/expired/:code" element={<ExpiredPage />} />
-<Route path="/subscription/:code" element={<SubscriptionPage />} />
+        <Route path="/activate/:code" element={<ActivatePage />} />
+        <Route path="/register/:code" element={<RegisterPage />} />
+        <Route path="/pet-register/:code" element={<PetRegisterPage />} />
 
-{/* ======================
-ADMIN
-====================== */}
+        <Route path="/emergency/:code" element={<EmergencyPage />} />
+        <Route path="/expired/:code" element={<ExpiredPage />} />
+        <Route path="/subscription/:code" element={<SubscriptionPage />} />
 
-<Route path="/admin-login" element={<AdminLogin />} />
+        <Route path="/qr/:code" element={<QRResolver />} />
 
-<Route
-path="/admin"
-element={
-<ProtectedRoute>
-<AdminDashboard />
-</ProtectedRoute>
-}
-/>
+        {/* ======================
+        ADMIN
+        ====================== */}
 
-<Route
-path="/admin/orders"
-element={
-<ProtectedRoute>
-<OrdersPage />
-</ProtectedRoute>
-}
-/>
+        <Route path="/admin-login" element={<AdminLogin />} />
 
-<Route
-path="/admin/inventory"
-element={
-<ProtectedRoute>
-<InventoryPage />
-</ProtectedRoute>
-}
-/>
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
 
-<Route path="*" element={<Navigate to="/" replace />} />
+        <Route
+          path="/admin/orders"
+          element={
+            <ProtectedRoute>
+              <OrdersPage />
+            </ProtectedRoute>
+          }
+        />
 
-</Routes>
+        <Route
+          path="/admin/inventory"
+          element={
+            <ProtectedRoute>
+              <InventoryPage />
+            </ProtectedRoute>
+          }
+        />
 
-</BrowserRouter>
+        {/* ======================
+        QR ROOT SCAN (KEEP LAST)
+        ====================== */}
 
-);
+        <Route path="/:code" element={<QRResolver />} />
+
+        {/* ======================
+        FALLBACK
+        ====================== */}
+
+        <Route path="*" element={<Navigate to="/" replace />} />
+
+      </Routes>
+
+    </BrowserRouter>
+
+  );
 
 }
 

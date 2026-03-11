@@ -9,6 +9,7 @@ export default function ActivatePage() {
   const navigate = useNavigate();
 
   const [qrType, setQrType] = useState("vehicle");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
 
@@ -27,6 +28,8 @@ export default function ActivatePage() {
         console.error(err);
       }
 
+      setLoading(false);
+
     }
 
     fetchQR();
@@ -44,6 +47,14 @@ export default function ActivatePage() {
 
   }
 
+  if (loading) {
+    return (
+      <div style={styles.page}>
+        <div style={styles.card}>Loading...</div>
+      </div>
+    );
+  }
+
   return (
     <div style={styles.page}>
       <div style={styles.card}>
@@ -51,10 +62,10 @@ export default function ActivatePage() {
         <h2 style={styles.title}>Activate Emergency Tag</h2>
 
         <p style={styles.text}>
-          You are about to activate your emergency QR tag.
-          <br /><br />
-          In the next step you will enter owner details,
-          vehicle number and emergency contact information.
+          {qrType === "pet"
+            ? "You are about to activate your pet emergency QR tag. In the next step you will enter pet details, owner information and emergency contact."
+            : "You are about to activate your vehicle emergency QR tag. In the next step you will enter owner details, vehicle number and emergency contact information."
+          }
         </p>
 
         <button
