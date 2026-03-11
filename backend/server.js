@@ -25,7 +25,6 @@ APP INIT
 const app = express();
 app.set("trust proxy", 1);
 
-/* IMPORTANT: Railway port */
 const PORT = process.env.PORT || 8080;
 
 /* =========================
@@ -74,17 +73,21 @@ app.get("/", (req, res) => {
 });
 
 /* =========================
-RATE LIMIT
+RATE LIMITERS
 ========================= */
 
 const publicLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false
 });
 
 const adminLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false
 });
 
 app.use("/api", publicLimiter);
@@ -118,26 +121,52 @@ ERROR HANDLER
 ========================= */
 
 app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).json({ message: "Internal server error" });
+
+  console.error("Server error:", err);
+
+  if (err.type === "entity.parse.failed") {
+    return res.status(400).json({
+      message: "Invalid JSON body"
+    });
+  }
+
+  res.status(500).json({
+    message: "Internal server error"
+  });
+
 });
 
 /* =========================
-START SERVER
+START SERVER (SAFE)
 ========================= */
 
-app.listen(PORT, "0.0.0.0", async () => {
+let server;
 
-  console.log("Server started on port", PORT);
+async function startServer() {
 
   try {
+
+    console.log("Connecting database...");
+
     await pool.query("SELECT 1");
+
     console.log("Database connected");
+
+    server = app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+
   } catch (err) {
+
     console.error("Database connection failed:", err);
+
+    process.exit(1);
+
   }
 
-});
+}
+
+startServer();
 
 /* =========================
 GRACEFUL SHUTDOWN
@@ -148,13 +177,25 @@ const shutdown = async () => {
   console.log("Shutdown signal received");
 
   try {
+
+    if (server) {
+      server.close(() => {
+        console.log("HTTP server closed");
+      });
+    }
+
     await pool.end();
+
     console.log("Database pool closed");
+
   } catch (err) {
+
     console.error("Shutdown DB error:", err);
+
   }
 
   process.exit(0);
+
 };
 
 process.on("SIGTERM", shutdown);
