@@ -25,7 +25,7 @@ APP INIT
 const app = express();
 app.set("trust proxy", 1);
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 3000;
 
 /* =========================
 ENV VALIDATION
@@ -139,39 +139,21 @@ legacyHeaders:false
 API ROUTES
 ========================= */
 
-/* public limiter */
-
 app.use("/api",publicLimiter);
-
-/* QR */
 
 app.use("/api/qr", qrRoutes(pool));
 
-/* Emergency */
-
 app.use("/api/emergency", emergencyRoutes(pool));
-
-/* Profile activation */
 
 app.use("/api/profile", profileRoutes(pool));
 
-/* OTP */
-
 app.use("/api/otp", otpRoutes(pool));
-
-/* Masked contact */
 
 app.use("/api/masked", maskedRoutes(pool));
 
-/* Tag activation */
-
 app.use("/api/tags", tagRoutes(pool));
 
-/* Admin login limiter */
-
 app.use("/api/admin/login",adminLoginLimiter);
-
-/* Admin */
 
 app.use("/api/admin", adminRoutes(pool));
 
@@ -212,10 +194,18 @@ message:"Internal server error"
 });
 
 /* =========================
-DATABASE CHECK
+START SERVER
 ========================= */
 
-const startServer = async ()=>{
+const server = app.listen(PORT,"0.0.0.0",()=>{
+console.log(`Server running on port ${PORT}`);
+});
+
+/* =========================
+DATABASE CHECK (background)
+========================= */
+
+(async ()=>{
 
 try{
 
@@ -223,21 +213,13 @@ await pool.query("SELECT 1");
 
 console.log("Database connected");
 
-app.listen(PORT,"0.0.0.0",()=>{
-console.log(`Server running on port ${PORT}`);
-});
-
 }catch(err){
 
 console.error("Database connection failed:",err.message);
 
-process.exit(1);
-
 }
 
-};
-
-startServer();
+})();
 
 /* =========================
 GRACEFUL SHUTDOWN
@@ -246,6 +228,8 @@ GRACEFUL SHUTDOWN
 const shutdown = async ()=>{
 
 console.log("Shutdown signal received");
+
+server.close(async ()=>{
 
 try{
 
@@ -260,6 +244,8 @@ console.error("Shutdown DB error:",err.message);
 }
 
 process.exit(0);
+
+});
 
 };
 
