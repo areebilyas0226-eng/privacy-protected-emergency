@@ -21,8 +21,7 @@ export default function EmergencyPage() {
         const res = await fetch(`${API_BASE}/api/emergency/${code}`);
         const result = await res.json();
 
-        console.log("Emergency API Response:", result);
-
+        // Redirect logic based on backend status
         if (result.status === "inactive") {
           navigate(`/activate/${code}`);
           return;
@@ -52,105 +51,127 @@ export default function EmergencyPage() {
   }, [code, navigate]);
 
   if (loading) {
-    return (
-      <div style={{ padding: 40, textAlign: "center" }}>
-        <h2>Loading emergency data...</h2>
-      </div>
-    );
+    return <h2 style={{ padding: 40 }}>Loading...</h2>;
   }
 
   if (error) {
-    return (
-      <div style={{ padding: 40, textAlign: "center", color: "red" }}>
-        {error}
-      </div>
-    );
+    return <div style={{ padding: 40, color: "red" }}>{error}</div>;
   }
-
-  const ownerMobile = data?.owner_mobile || "";
-  const emergencyMobile = data?.emergency_contact || "";
 
   return (
 
     <div
       style={{
-        minHeight: "100vh",
-        background: "linear-gradient(180deg,#16c0d9,#2b7de0)",
-        padding: "30px 20px",
-        fontFamily: "Arial, sans-serif"
+        padding: 30,
+        maxWidth: 500,
+        margin: "0 auto",
+        fontFamily: "Arial"
       }}
     >
 
-      <h1
-        style={{
-          textAlign: "center",
-          color: "white",
-          marginBottom: 25
-        }}
-      >
+      <h1 style={{ textAlign: "center", marginBottom: 30 }}>
         Emergency Information
       </h1>
 
-      {/* INFO CARD */}
-
       <div
         style={{
-          background: "white",
-          borderRadius: 14,
+          border: "1px solid #ddd",
+          borderRadius: 10,
           padding: 20,
           marginBottom: 30,
-          boxShadow: "0 10px 25px rgba(0,0,0,0.15)"
+          background: "#fafafa"
         }}
       >
 
-        <p><strong>QR Code:</strong> {data?.qr_code || "Not available"}</p>
-        <p><strong>Vehicle Number:</strong> {data?.vehicle_number || "Not available"}</p>
-        <p><strong>Owner Name:</strong> {data?.owner_name || "Not available"}</p>
-        <p><strong>Blood Group:</strong> {data?.blood_group || "Not available"}</p>
-        <p><strong>Vehicle Model:</strong> {data?.model || "Not available"}</p>
+        <p><strong>QR Code:</strong> {data?.qr_code}</p>
+        <p><strong>Vehicle Number:</strong> {data?.vehicle_number}</p>
+        <p><strong>Owner Name:</strong> {data?.owner_name}</p>
+        <p><strong>Blood Group:</strong> {data?.blood_group}</p>
+        <p><strong>Vehicle Model:</strong> {data?.model}</p>
 
       </div>
 
-      {/* ACTION BUTTONS */}
-
-      <h3 style={{ color: "white", marginBottom: 15 }}>
-        Emergency Actions
-      </h3>
+      <h3 style={{ marginBottom: 15 }}>Emergency Actions</h3>
 
       <div
         style={{
           display: "grid",
-          gap: 14
+          gap: 12
         }}
       >
 
-        {ownerMobile && (
-          <a
-            href={`tel:${ownerMobile}`}
-            style={btn("#e53935")}
-          >
-            Call Owner
-          </a>
-        )}
+        <a
+          href={`tel:${data?.owner_mobile}`}
+          style={{
+            background: "#e53935",
+            color: "white",
+            padding: "14px",
+            textAlign: "center",
+            borderRadius: 8,
+            textDecoration: "none",
+            fontWeight: "bold"
+          }}
+        >
+          Call Owner
+        </a>
 
-        {emergencyMobile && (
-          <a
-            href={`tel:${emergencyMobile}`}
-            style={btn("#ff8f00")}
-          >
-            Call Emergency Family
-          </a>
-        )}
+        <a
+          href={`tel:${data?.emergency_contact}`}
+          style={{
+            background: "#fb8c00",
+            color: "white",
+            padding: "14px",
+            textAlign: "center",
+            borderRadius: 8,
+            textDecoration: "none",
+            fontWeight: "bold"
+          }}
+        >
+          Call Emergency Family
+        </a>
 
-        <a href="tel:102" style={btn("#43a047")}>
+        <a
+          href="tel:102"
+          style={{
+            background: "#43a047",
+            color: "white",
+            padding: "14px",
+            textAlign: "center",
+            borderRadius: 8,
+            textDecoration: "none",
+            fontWeight: "bold"
+          }}
+        >
           Call Ambulance (102)
         </a>
 
-        <a href="tel:100" style={btn("#1e88e5")}>
+        <a
+          href="tel:100"
+          style={{
+            background: "#1e88e5",
+            color: "white",
+            padding: "14px",
+            textAlign: "center",
+            borderRadius: 8,
+            textDecoration: "none",
+            fontWeight: "bold"
+          }}
+        >
           Call Police (100)
         </a>
 
-        <a href="tel:101" style={btn("#6d4c41")}>
+        <a
+          href="tel:101"
+          style={{
+            background: "#6d4c41",
+            color: "white",
+            padding: "14px",
+            textAlign: "center",
+            borderRadius: 8,
+            textDecoration: "none",
+            fontWeight: "bold"
+          }}
+        >
           Call Fire (101)
         </a>
 
@@ -159,23 +180,5 @@ export default function EmergencyPage() {
     </div>
 
   );
-
-}
-
-/* BUTTON STYLE HELPER */
-
-function btn(color) {
-
-  return {
-    background: color,
-    color: "white",
-    padding: "15px",
-    borderRadius: 10,
-    textAlign: "center",
-    textDecoration: "none",
-    fontWeight: "bold",
-    fontSize: 16,
-    boxShadow: "0 5px 12px rgba(0,0,0,0.25)"
-  };
 
 }
