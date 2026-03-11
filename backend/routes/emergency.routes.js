@@ -2,157 +2,246 @@ import express from "express";
 
 export default function emergencyRoutes(pool) {
 
-const router = express.Router();
+  const router = express.Router();
 
-router.get("/:code", async (req, res) => {
+  /*
+  =====================================================
+  GET /api/emergency/:code
+  Fetch emergency information for QR scan
+  =====================================================
+  */
 
-try {
+  router.get("/:code", async (req, res) => {
 
-const code = req.params.code?.trim();
+    try {
 
-if (!code) {
-return res.status(400).json({
-status: "invalid_qr"
-});
-}
+      /* ==========================
+      VALIDATE QR INPUT
+      ========================== */
 
-/* ======================
-FETCH QR + PROFILE
-====================== */
+      let code = req.params.code;
 
-const result = await pool.query(
-`
-SELECT
-q.id,
-q.status,
-q.expires_at,
-q.qr_code,
+      if (!code) {
+        return res.status(400).json({
+          status: "invalid_qr",
+          qr_code: null,
+          owner_name: null,
+          owner_mobile: null,
+          vehicle_number: null,
+          model: null,
+          blood_group: null,
+          emergency_contact: null,
+          ambulance: "108",
+          police: "100",
+          fire: "101"
+        });
+      }
 
-p.owner_name,
-p.owner_mobile,
-p.vehicle_number,
-p.model,
-p.blood_group,
-p.emergency_contact
+      code = code.trim();
 
-FROM qr_tags q
-LEFT JOIN vehicle_profiles p
-ON q.id = p.qr_tag_id
+      // basic format safety (alphanumeric + dash)
+      const qrPattern = /^[A-Za-z0-9\-]+$/;
 
-WHERE q.qr_code = $1
-`,
-[code]
-);
+      if (!qrPattern.test(code)) {
+        return res.status(400).json({
+          status: "invalid_qr",
+          qr_code: code
+        });
+      }
 
-/* ======================
-QR NOT FOUND
-====================== */
+      /* ==========================
+      FETCH QR + PROFILE
+      ========================== */
 
-if (!result.rows.length) {
-return res.json({
-status: "not_found"
-});
-}
+      let result;
 
-const qr = result.rows[0];
-const now = new Date();
+      try {
 
-/* ======================
-TAG NOT ACTIVE
-====================== */
+        result = await pool.query(
+          `
+          SELECT
+            q.id,
+            q.status,
+            q.expires_at,
+            q.qr_code,
 
-if (qr.status !== "active") {
-return res.json({
-status: "inactive"
-});
-}
+            p.owner_name,
+            p.owner_mobile,
+            p.vehicle_number,
+            p.model,
+            p.blood_group,
+            p.emergency_contact
 
-/* ======================
-SUBSCRIPTION EXPIRED
-====================== */
+          FROM qr_tags q
+          LEFT JOIN vehicle_profiles p
+          ON q.id = p.qr_tag_id
 
-if (qr.expires_at && new Date(qr.expires_at) < now) {
-return res.json({
-status: "expired"
-});
-}
+          WHERE q.qr_code = $1
+          LIMIT 1
+          `,
+          [code]
+        );
 
-/* ======================
-PROFILE NOT CREATED
-====================== */
+      } catch (sqlErr) {
 
-if (!qr.owner_mobile) {
-return res.json({
-status: "profile_missing"
-});
-}
+        console.error("SQL ERROR:", sqlErr);
 
-/* ======================
-LOG EMERGENCY SCAN
-====================== */
+        return res.status(500).json({
+          status: "server_error"
+        });
 
-try {
+      }
 
-await pool.query(
-`
-INSERT INTO emergency_logs
-(qr_tag_id, action_type, caller_ip)
-VALUES ($1,'scan',$2)
-`,
-[qr.id, req.ip]
-);
+      /* ==========================
+      QR NOT FOUND
+      ========================== */
 
-} catch (logErr) {
+      if (!result.rows || result.rows.length === 0) {
 
-console.error("Emergency log failed:", logErr);
+        return res.json({
+          status: "not_found",
+          qr_code: code,
+          owner_name: null,
+          owner_mobile: null,
+          vehicle_number: null,
+          model: null,
+          blood_group: null,
+          emergency_contact: null,
+          ambulance: "108",
+          police: "100",
+          fire: "101"
+        });
 
-}
+      }
 
-/* ======================
-SUCCESS RESPONSE
-====================== */
+      const qr = result.rows[0];
+      const now = new Date();
 
-return res.json({
+      /* ==========================
+      QR INACTIVE
+      ========================== */
 
-status: "active",
+      if (qr.status !== "active") {
 
-qr_code: qr.qr_code,
+        return res.json({
+          status: "inactive",
+          qr_code: qr.qr_code,
+          owner_name: null,
+          owner_mobile: null,
+          vehicle_number: null,
+          model: null,
+          blood_group: null,
+          emergency_contact: null,
+          ambulance: "108",
+          police: "100",
+          fire: "101"
+        });
 
-owner: {
-name: qr.owner_name || "",
-mobile: qr.owner_mobile || "",
-emergency_contact: qr.emergency_contact || ""
-},
+      }
 
-vehicle: {
-number: qr.vehicle_number || "",
-model: qr.model || ""
-},
+      /* ==========================
+      SUBSCRIPTION EXPIRED
+      ========================== */
 
-medical: {
-blood_group: qr.blood_group || ""
-},
+      if (qr.expires_at && new Date(qr.expires_at) < now) {
 
-emergency_numbers: {
-ambulance: "108",
-police: "100",
-fire: "101"
-}
+        return res.json({
+          status: "expired",
+          qr_code: qr.qr_code,
+          owner_name: null,
+          owner_mobile: null,
+          vehicle_number: null,
+          model: null,
+          blood_group: null,
+          emergency_contact: null,
+          ambulance: "108",
+          police: "100",
+          fire: "101"
+        });
 
-});
+      }
 
-} catch (err) {
+      /* ==========================
+      PROFILE MISSING
+      ========================== */
 
-console.error("EMERGENCY ERROR:", err);
+      if (!qr.owner_mobile) {
 
-return res.status(500).json({
-status: "server_error"
-});
+        return res.json({
+          status: "profile_missing",
+          qr_code: qr.qr_code,
+          owner_name: null,
+          owner_mobile: null,
+          vehicle_number: null,
+          model: null,
+          blood_group: null,
+          emergency_contact: null,
+          ambulance: "108",
+          police: "100",
+          fire: "101"
+        });
 
-}
+      }
 
-});
+      /* ==========================
+      LOG SCAN EVENT
+      ========================== */
 
-return router;
+      try {
+
+        await pool.query(
+          `
+          INSERT INTO emergency_logs
+          (qr_tag_id, action_type, caller_ip)
+          VALUES ($1,'scan',$2)
+          `,
+          [qr.id, req.ip || null]
+        );
+
+      } catch (logErr) {
+
+        // logging must never break API
+        console.error("Emergency scan log failed:", logErr);
+
+      }
+
+      /* ==========================
+      SUCCESS RESPONSE
+      ========================== */
+
+      return res.json({
+
+        status: "active",
+
+        qr_code: qr.qr_code || "",
+
+        owner_name: qr.owner_name || "",
+        owner_mobile: qr.owner_mobile || "",
+
+        vehicle_number: qr.vehicle_number || "",
+        model: qr.model || "",
+
+        blood_group: qr.blood_group || "",
+        emergency_contact: qr.emergency_contact || "",
+
+        ambulance: "108",
+        police: "100",
+        fire: "101"
+
+      });
+
+    } catch (err) {
+
+      console.error("EMERGENCY ROUTE ERROR:", err);
+
+      return res.status(500).json({
+        status: "server_error"
+      });
+
+    }
+
+  });
+
+  return router;
 
 }
