@@ -25,26 +25,24 @@ APP INIT
 const app = express();
 app.set("trust proxy", 1);
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
 
 /* =========================
 ENV VALIDATION
 ========================= */
 
 const requiredEnv = [
-"DATABASE_URL",
-"ADMIN_EMAIL",
-"ADMIN_PASSWORD_HASH",
-"JWT_SECRET"
+  "DATABASE_URL",
+  "ADMIN_EMAIL",
+  "ADMIN_PASSWORD_HASH",
+  "JWT_SECRET"
 ];
 
 for (const key of requiredEnv) {
-
-if (!process.env[key]) {
-console.error(`${key} not defined`);
-process.exit(1);
-}
-
+  if (!process.env[key]) {
+    console.error(`${key} not defined`);
+    process.exit(1);
+  }
 }
 
 /* =========================
@@ -52,20 +50,16 @@ SECURITY
 ========================= */
 
 app.use(helmet());
-
-app.use(express.json({
-limit: "10kb"
-}));
-
+app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
 
 /* =========================
 REQUEST LOGGING
 ========================= */
 
-app.use((req,res,next)=>{
-console.log(`${req.method} ${req.originalUrl}`);
-next();
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.originalUrl}`);
+  next();
 });
 
 /* =========================
@@ -73,40 +67,33 @@ CORS
 ========================= */
 
 const allowedOrigins = [
-"http://localhost:5173",
-process.env.FRONTEND_URL
+  "http://localhost:5173",
+  process.env.FRONTEND_URL
 ].filter(Boolean);
 
-app.use(cors({
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true);
+      if (allowedOrigins.includes(origin)) return cb(null, true);
 
-origin:(origin,cb)=>{
-
-if(!origin) return cb(null,true);
-
-if(allowedOrigins.includes(origin)){
-return cb(null,true);
-}
-
-console.warn("Blocked by CORS:",origin);
-
-return cb(new Error("Not allowed by CORS"));
-
-},
-
-credentials:true
-
-}));
+      console.warn("Blocked by CORS:", origin);
+      return cb(new Error("Not allowed by CORS"));
+    },
+    credentials: true
+  })
+);
 
 /* =========================
 HEALTHCHECK
 ========================= */
 
-app.get("/health",(req,res)=>{
-res.status(200).json({status:"ok"});
+app.get("/health", (req, res) => {
+  res.send("ok");
 });
 
-app.get("/",(req,res)=>{
-res.status(200).json({status:"running"});
+app.get("/", (req, res) => {
+  res.send("running");
 });
 
 /* =========================
@@ -114,43 +101,33 @@ RATE LIMITERS
 ========================= */
 
 const publicLimiter = rateLimit({
-
-windowMs:15*60*1000,
-max:300,
-standardHeaders:true,
-legacyHeaders:false
-
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false
 });
 
 const adminLoginLimiter = rateLimit({
-
-windowMs:15*60*1000,
-max:5,
-standardHeaders:true,
-legacyHeaders:false
-
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false
 });
 
 /* =========================
 API ROUTES
 ========================= */
 
-app.use("/api",publicLimiter);
+app.use("/api", publicLimiter);
 
 app.use("/api/qr", qrRoutes(pool));
-
 app.use("/api/emergency", emergencyRoutes(pool));
-
 app.use("/api/profile", profileRoutes(pool));
-
 app.use("/api/otp", otpRoutes(pool));
-
 app.use("/api/masked", maskedRoutes(pool));
-
 app.use("/api/tags", tagRoutes(pool));
 
-app.use("/api/admin/login",adminLoginLimiter);
-
+app.use("/api/admin/login", adminLoginLimiter);
 app.use("/api/admin", adminRoutes(pool));
 
 /* =========================
@@ -163,87 +140,63 @@ app.use("/", publicRoutes(pool));
 404 HANDLER
 ========================= */
 
-app.use((req,res)=>{
-res.status(404).json({
-message:"Route not found"
-});
+app.use((req, res) => {
+  res.status(404).json({ message: "Route not found" });
 });
 
 /* =========================
 ERROR HANDLER
 ========================= */
 
-app.use((err,req,res,next)=>{
+app.use((err, req, res, next) => {
+  console.error("Server error:", err?.message || err);
 
-console.error("Server error:",err?.message || err);
+  if (err.type === "entity.parse.failed") {
+    return res.status(400).json({ message: "Invalid JSON body" });
+  }
 
-if(err.type==="entity.parse.failed"){
-return res.status(400).json({
-message:"Invalid JSON body"
-});
-}
-
-res.status(500).json({
-message:"Internal server error"
-});
-
+  res.status(500).json({ message: "Internal server error" });
 });
 
 /* =========================
-START SERVER (IMPORTANT)
+START SERVER
 ========================= */
 
-const server = app.listen(PORT,"0.0.0.0",()=>{
-console.log(`Server running on port ${PORT}`);
+const server = app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on port ${PORT}`);
 });
 
 /* =========================
 DATABASE CHECK (BACKGROUND)
 ========================= */
 
-(async ()=>{
-
-try{
-
-await pool.query("SELECT 1");
-
-console.log("Database connected");
-
-}catch(err){
-
-console.error("Database connection failed:",err.message);
-
-}
-
+(async () => {
+  try {
+    await pool.query("SELECT 1");
+    console.log("Database connected");
+  } catch (err) {
+    console.error("Database connection failed:", err.message);
+  }
 })();
 
 /* =========================
 GRACEFUL SHUTDOWN
 ========================= */
 
-const shutdown = async ()=>{
+const shutdown = async () => {
+  console.log("Shutdown signal received");
 
-console.log("Shutdown signal received");
+  server.close(async () => {
+    try {
+      await pool.end();
+      console.log("Database pool closed");
+    } catch (err) {
+      console.error("Shutdown DB error:", err.message);
+    }
 
-server.close(async ()=>{
-
-try{
-
-await pool.end();
-
-console.log("Database pool closed");
-
-}catch(err){
-
-console.error("Shutdown DB error:",err.message);
-
-}
-
-process.exit(0);
-
-});
-
+    process.exit(0);
+  });
 };
 
-process.on("SIGTERM",shutdown);
-process.on("SIGINT",shutdown);
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
