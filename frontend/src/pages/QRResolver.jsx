@@ -3,119 +3,132 @@ import { useEffect, useRef } from "react";
 
 const API_BASE = import.meta.env.VITE_API_URL;
 
-export default function QRResolver() {
+export default function QRResolver(){
 
-  const { code } = useParams();
-  const navigate = useNavigate();
-  const resolved = useRef(false);
+const { code } = useParams();
+const navigate = useNavigate();
+const resolved = useRef(false);
 
-  useEffect(() => {
+useEffect(()=>{
 
-    if (!code || resolved.current) return;
+if(!code || resolved.current) return;
 
-    resolved.current = true;
+resolved.current = true;
 
-    async function resolveQR() {
+async function resolveQR(){
 
-      try {
+try{
 
-        const res = await fetch(`${API_BASE}/api/qr/${code}`);
+const res = await fetch(`${API_BASE}/api/qr/${code}`);
 
-        if (!res.ok) {
-          navigate(`/expired/${code}`, { replace: true });
-          return;
-        }
+if(!res.ok){
+navigate(`/expired/${code}`,{replace:true});
+return;
+}
 
-        const data = await res.json();
+const data = await res.json();
 
-        const type = data.qr_type || "vehicle";
+const type = data.qr_type || "vehicle";
 
-        const activateRoute =
-          type === "pet"
-            ? `/pet-activate/${code}`
-            : `/vehicle-activate/${code}`;
+/* ROUTES */
 
-        const registerRoute =
-          type === "pet"
-            ? `/pet-register/${code}`
-            : `/vehicle-register/${code}`;
+const activateRoute =
+type === "pet"
+? `/pet-activate/${code}`
+: `/vehicle-activate/${code}`;
 
-        const emergencyRoute =
-          type === "pet"
-            ? `/pet-emergency/${code}`
-            : `/vehicle-emergency/${code}`;
+const registerRoute =
+type === "pet"
+? `/pet-register/${code}`
+: `/vehicle-register/${code}`;
 
-        /* =========================
-        inactive → activation page
-        ========================= */
+const emergencyRoute =
+type === "pet"
+? `/pet-emergency/${code}`
+: `/vehicle-emergency/${code}`;
 
-        if (data.status === "inactive") {
-          navigate(activateRoute, { replace: true });
-          return;
-        }
+/* ======================
+INACTIVE
+====================== */
 
-        /* =========================
-        activation started
-        ========================= */
+if(data.status === "inactive"){
+navigate(activateRoute,{replace:true});
+return;
+}
 
-        if (data.status === "activation_pending") {
-          navigate(registerRoute, { replace: true });
-          return;
-        }
+/* ======================
+ACTIVATION STARTED
+====================== */
 
-        /* =========================
-        active QR
-        ========================= */
+if(data.status === "activation_pending"){
+navigate(registerRoute,{replace:true});
+return;
+}
 
-        if (data.status === "active") {
+/* ======================
+EXPIRED
+====================== */
 
-          const expiry = data.expires_at ? new Date(data.expires_at) : null;
-          const now = new Date();
+if(data.status === "expired"){
+navigate(`/subscription/${code}`,{replace:true});
+return;
+}
 
-          if (!expiry) {
-            navigate(emergencyRoute, { replace: true });
-            return;
-          }
+/* ======================
+ACTIVE
+====================== */
 
-          if (expiry.getTime() > now.getTime()) {
-            navigate(emergencyRoute, { replace: true });
-            return;
-          }
+if(data.status === "active"){
 
-          navigate(`/subscription/${code}`, { replace: true });
-          return;
-        }
+const expiry = data.expires_at ? new Date(data.expires_at) : null;
+const now = new Date();
 
-        /* =========================
-        fallback
-        ========================= */
+if(!expiry){
+navigate(emergencyRoute,{replace:true});
+return;
+}
 
-        navigate(`/expired/${code}`, { replace: true });
+if(expiry.getTime() > now.getTime()){
+navigate(emergencyRoute,{replace:true});
+return;
+}
 
-      } catch (err) {
+navigate(`/subscription/${code}`,{replace:true});
+return;
 
-        console.error(err);
-        navigate(`/expired/${code}`, { replace: true });
+}
 
-      }
+/* ======================
+FALLBACK
+====================== */
 
-    }
+navigate(`/expired/${code}`,{replace:true});
 
-    resolveQR();
+}catch(err){
 
-  }, [code, navigate]);
+console.error(err);
+navigate(`/expired/${code}`,{replace:true});
 
-  return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: "18px"
-      }}
-    >
-      Resolving QR...
-    </div>
-  );
+}
+
+}
+
+resolveQR();
+
+},[code,navigate]);
+
+return(
+
+<div style={{
+minHeight:"100vh",
+display:"flex",
+alignItems:"center",
+justifyContent:"center",
+fontSize:"18px"
+}}>
+Resolving QR...
+</div>
+
+);
+
 }

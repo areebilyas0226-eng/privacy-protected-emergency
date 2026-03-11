@@ -10,7 +10,10 @@ try{
 
 const result = await pool.query(
 `
-SELECT status, expires_at
+SELECT
+status,
+expires_at,
+qr_type
 FROM qr_tags
 WHERE qr_code=$1
 `,
@@ -25,38 +28,48 @@ const qr = result.rows[0];
 
 const now = new Date();
 
+let expiry = null;
+
 if(qr.expires_at){
-
-const expiry = new Date(qr.expires_at);
-
-/* expired */
-
-if(expiry < now){
-return res.json({
-status:"expired",
-expires_at:expiry
-});
+expiry = new Date(qr.expires_at);
 }
 
-/* expiry warning */
+/* ======================
+EXPIRED
+====================== */
+
+if(expiry && expiry < now){
+
+return res.json({
+status:"expired",
+expires_at:expiry,
+qr_type:qr.qr_type
+});
+
+}
+
+/* ======================
+WARNING (7 days)
+====================== */
+
+let warning = false;
+
+if(expiry){
 
 const diffDays =
 (expiry.getTime() - now.getTime()) / (1000*60*60*24);
 
-const warning = diffDays <= 7;
-
-return res.json({
-status:qr.status,
-expires_at:expiry,
-warning
-});
+warning = diffDays <= 7;
 
 }
 
 return res.json({
+
 status:qr.status,
-expires_at:null,
-warning:false
+expires_at:expiry,
+warning,
+qr_type:qr.qr_type
+
 });
 
 }catch(err){
