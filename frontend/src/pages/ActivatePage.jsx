@@ -1,12 +1,47 @@
 import { useParams, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+
+const API_BASE = import.meta.env.VITE_API_URL;
 
 export default function ActivatePage() {
 
   const { code } = useParams();
   const navigate = useNavigate();
 
+  const [qrType, setQrType] = useState("vehicle");
+
+  useEffect(() => {
+
+    async function fetchQR() {
+
+      try {
+
+        const res = await fetch(`${API_BASE}/api/emergency/${code}`);
+        const data = await res.json();
+
+        if (data.qr_type) {
+          setQrType(data.qr_type);
+        }
+
+      } catch (err) {
+        console.error(err);
+      }
+
+    }
+
+    fetchQR();
+
+  }, [code]);
+
+
   function startRegistration() {
-    navigate(`/register/${code}`);
+
+    if (qrType === "pet") {
+      navigate(`/pet-register/${code}`);
+    } else {
+      navigate(`/register/${code}`);
+    }
+
   }
 
   return (

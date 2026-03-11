@@ -4,35 +4,15 @@ export default function emergencyRoutes(pool) {
 
   const router = express.Router();
 
-  /*
-  =====================================================
-  GET /api/emergency/:code
-  Fetch emergency information for QR scan
-  =====================================================
-  */
-
   router.get("/:code", async (req, res) => {
 
     try {
-
-      /* ==========================
-      VALIDATE QR INPUT
-      ========================== */
 
       let code = req.params.code;
 
       if (!code) {
         return res.status(400).json({
-          status: "invalid_qr",
-          owner_name: null,
-          owner_mobile: null,
-          vehicle_number: null,
-          model: null,
-          blood_group: null,
-          emergency_contact: null,
-          ambulance: "108",
-          police: "100",
-          fire: "101"
+          status: "invalid_qr"
         });
       }
 
@@ -46,10 +26,6 @@ export default function emergencyRoutes(pool) {
         });
       }
 
-      /* ==========================
-      FETCH QR + PROFILE
-      ========================== */
-
       let result;
 
       try {
@@ -60,6 +36,7 @@ export default function emergencyRoutes(pool) {
             q.id,
             q.status,
             q.expires_at,
+            q.type,
 
             p.owner_name,
             p.owner_mobile,
@@ -88,23 +65,10 @@ export default function emergencyRoutes(pool) {
 
       }
 
-      /* ==========================
-      QR NOT FOUND
-      ========================== */
-
       if (!result.rows || result.rows.length === 0) {
 
         return res.json({
-          status: "not_found",
-          owner_name: null,
-          owner_mobile: null,
-          vehicle_number: null,
-          model: null,
-          blood_group: null,
-          emergency_contact: null,
-          ambulance: "108",
-          police: "100",
-          fire: "101"
+          status: "not_found"
         });
 
       }
@@ -112,72 +76,31 @@ export default function emergencyRoutes(pool) {
       const qr = result.rows[0];
       const now = new Date();
 
-      /* ==========================
-      QR INACTIVE
-      ========================== */
-
       if (qr.status !== "active") {
 
         return res.json({
           status: "inactive",
-          owner_name: null,
-          owner_mobile: null,
-          vehicle_number: null,
-          model: null,
-          blood_group: null,
-          emergency_contact: null,
-          ambulance: "108",
-          police: "100",
-          fire: "101"
+          qr_type: qr.type
         });
 
       }
-
-      /* ==========================
-      SUBSCRIPTION EXPIRED
-      ========================== */
 
       if (qr.expires_at && new Date(qr.expires_at) < now) {
 
         return res.json({
-          status: "expired",
-          owner_name: null,
-          owner_mobile: null,
-          vehicle_number: null,
-          model: null,
-          blood_group: null,
-          emergency_contact: null,
-          ambulance: "108",
-          police: "100",
-          fire: "101"
+          status: "expired"
         });
 
       }
-
-      /* ==========================
-      PROFILE MISSING
-      ========================== */
 
       if (!qr.owner_mobile) {
 
         return res.json({
           status: "profile_missing",
-          owner_name: null,
-          owner_mobile: null,
-          vehicle_number: null,
-          model: null,
-          blood_group: null,
-          emergency_contact: null,
-          ambulance: "108",
-          police: "100",
-          fire: "101"
+          qr_type: qr.type
         });
 
       }
-
-      /* ==========================
-      LOG SCAN EVENT
-      ========================== */
 
       try {
 
@@ -196,13 +119,10 @@ export default function emergencyRoutes(pool) {
 
       }
 
-      /* ==========================
-      SUCCESS RESPONSE
-      ========================== */
-
       return res.json({
 
         status: "active",
+        qr_type: qr.type,
 
         owner_name: qr.owner_name || "",
         owner_mobile: qr.owner_mobile || "",
