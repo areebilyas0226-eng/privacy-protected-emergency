@@ -21,7 +21,6 @@ export default function EmergencyPage() {
         const res = await fetch(`${API_BASE}/api/emergency/${code}`);
         const result = await res.json();
 
-        // Redirect logic based on backend status
         if (result.status === "inactive") {
           navigate(`/activate/${code}`);
           return;
@@ -62,32 +61,44 @@ export default function EmergencyPage() {
 
     <div
       style={{
+        minHeight: "100vh",
         padding: 30,
         maxWidth: 500,
         margin: "0 auto",
-        fontFamily: "Arial"
+        fontFamily: "Arial",
+        color: "white"
       }}
     >
 
-      <h1 style={{ textAlign: "center", marginBottom: 30 }}>
+      <h1
+        style={{
+          textAlign: "center",
+          marginBottom: 30,
+          fontWeight: "bold"
+        }}
+      >
         Emergency Information
       </h1>
 
+      {/* TRANSPARENT GLASS CARD */}
       <div
         style={{
-          border: "1px solid #ddd",
-          borderRadius: 10,
+          borderRadius: 14,
           padding: 20,
           marginBottom: 30,
-          background: "#fafafa"
+          background: "rgba(255,255,255,0.15)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          border: "1px solid rgba(255,255,255,0.3)",
+          color: "white"
         }}
       >
 
-        <p><strong>QR Code:</strong> {data?.qr_code}</p>
-        <p><strong>Vehicle Number:</strong> {data?.vehicle_number}</p>
-        <p><strong>Owner Name:</strong> {data?.owner_name}</p>
-        <p><strong>Blood Group:</strong> {data?.blood_group}</p>
-        <p><strong>Vehicle Model:</strong> {data?.model}</p>
+        <p><strong>QR Code:</strong> {data?.qr_code || "N/A"}</p>
+        <p><strong>Vehicle Number:</strong> {data?.vehicle_number || "N/A"}</p>
+        <p><strong>Owner Name:</strong> {data?.owner_name || "N/A"}</p>
+        <p><strong>Blood Group:</strong> {data?.blood_group || "N/A"}</p>
+        <p><strong>Vehicle Model:</strong> {data?.model || "N/A"}</p>
 
       </div>
 
@@ -96,7 +107,7 @@ export default function EmergencyPage() {
       <div
         style={{
           display: "grid",
-          gap: 12
+          gap: 14
         }}
       >
 
@@ -105,11 +116,12 @@ export default function EmergencyPage() {
           style={{
             background: "#e53935",
             color: "white",
-            padding: "14px",
+            padding: "16px",
             textAlign: "center",
-            borderRadius: 8,
+            borderRadius: 10,
             textDecoration: "none",
-            fontWeight: "bold"
+            fontWeight: "bold",
+            fontSize: 16
           }}
         >
           Call Owner
@@ -120,11 +132,12 @@ export default function EmergencyPage() {
           style={{
             background: "#fb8c00",
             color: "white",
-            padding: "14px",
+            padding: "16px",
             textAlign: "center",
-            borderRadius: 8,
+            borderRadius: 10,
             textDecoration: "none",
-            fontWeight: "bold"
+            fontWeight: "bold",
+            fontSize: 16
           }}
         >
           Call Emergency Family
@@ -135,11 +148,12 @@ export default function EmergencyPage() {
           style={{
             background: "#43a047",
             color: "white",
-            padding: "14px",
+            padding: "16px",
             textAlign: "center",
-            borderRadius: 8,
+            borderRadius: 10,
             textDecoration: "none",
-            fontWeight: "bold"
+            fontWeight: "bold",
+            fontSize: 16
           }}
         >
           Call Ambulance (102)
@@ -150,11 +164,12 @@ export default function EmergencyPage() {
           style={{
             background: "#1e88e5",
             color: "white",
-            padding: "14px",
+            padding: "16px",
             textAlign: "center",
-            borderRadius: 8,
+            borderRadius: 10,
             textDecoration: "none",
-            fontWeight: "bold"
+            fontWeight: "bold",
+            fontSize: 16
           }}
         >
           Call Police (100)
@@ -165,11 +180,12 @@ export default function EmergencyPage() {
           style={{
             background: "#6d4c41",
             color: "white",
-            padding: "14px",
+            padding: "16px",
             textAlign: "center",
-            borderRadius: 8,
+            borderRadius: 10,
             textDecoration: "none",
-            fontWeight: "bold"
+            fontWeight: "bold",
+            fontSize: 16
           }}
         >
           Call Fire (101)
