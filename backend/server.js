@@ -90,6 +90,7 @@ return cb(null,true);
 console.warn("Blocked by CORS:",origin);
 
 return cb(new Error("Not allowed by CORS"));
+
 },
 
 credentials:true
@@ -97,20 +98,15 @@ credentials:true
 }));
 
 /* =========================
-HEALTH CHECK
+HEALTHCHECK
 ========================= */
 
 app.get("/health",(req,res)=>{
-res.status(200).json({
-status:"ok",
-service:"vahan-tag-api"
-});
+res.status(200).json({status:"ok"});
 });
 
 app.get("/",(req,res)=>{
-res.status(200).json({
-status:"running"
-});
+res.status(200).json({status:"running"});
 });
 
 /* =========================
@@ -194,7 +190,7 @@ message:"Internal server error"
 });
 
 /* =========================
-START SERVER
+START SERVER (IMPORTANT)
 ========================= */
 
 const server = app.listen(PORT,"0.0.0.0",()=>{
@@ -202,7 +198,7 @@ console.log(`Server running on port ${PORT}`);
 });
 
 /* =========================
-DATABASE CHECK (background)
+DATABASE CHECK (BACKGROUND)
 ========================= */
 
 (async ()=>{
