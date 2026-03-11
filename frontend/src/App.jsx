@@ -1,21 +1,30 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 
+/* QR FLOW */
+
 import QRResolver from "./pages/QRResolver";
-import ActivatePage from "./pages/ActivatePage";
-import EmergencyPage from "./pages/EmergencyPage";
-import ExpiredPage from "./pages/ExpiredPage";
-import RegisterPage from "./pages/RegisterPage";
-import SubscriptionPage from "./pages/SubscriptionPage";
+
+import VehicleActivatePage from "./pages/VehicleActivatePage";
+import VehicleRegisterPage from "./pages/VehicleRegisterPage";
+import VehicleEmergencyPage from "./pages/VehicleEmergencyPage";
+
+import PetActivatePage from "./pages/PetActivatePage";
 import PetRegisterPage from "./pages/PetRegisterPage";
+import PetEmergencyPage from "./pages/PetEmergencyPage";
+
+import ExpiredPage from "./pages/ExpiredPage";
+import SubscriptionPage from "./pages/SubscriptionPage";
+
+/* ADMIN */
 
 import AdminDashboard from "./pages/admin/Dashboard";
 import OrdersPage from "./pages/admin/Order";
 import InventoryPage from "./pages/admin/Inventory";
-
 import AdminLogin from "./pages/AdminLogin";
 
 const API_BASE = import.meta.env.VITE_API_URL;
+
 
 /* =========================
 Protected Route
@@ -74,6 +83,7 @@ function ProtectedRoute({ children }) {
 
 }
 
+
 /* =========================
 APP ROUTER
 ========================= */
@@ -93,18 +103,33 @@ function App() {
         <Route path="/" element={<Navigate to="/admin-login" replace />} />
 
         {/* ======================
-        QR FLOW
+        QR ENTRY
         ====================== */}
 
-        <Route path="/activate/:code" element={<ActivatePage />} />
-        <Route path="/register/:code" element={<RegisterPage />} />
-        <Route path="/pet-register/:code" element={<PetRegisterPage />} />
+        <Route path="/qr/:code" element={<QRResolver />} />
 
-        <Route path="/emergency/:code" element={<EmergencyPage />} />
+        {/* ======================
+        VEHICLE FLOW
+        ====================== */}
+
+        <Route path="/vehicle-activate/:code" element={<VehicleActivatePage />} />
+        <Route path="/vehicle-register/:code" element={<VehicleRegisterPage />} />
+        <Route path="/vehicle-emergency/:code" element={<VehicleEmergencyPage />} />
+
+        {/* ======================
+        PET FLOW
+        ====================== */}
+
+        <Route path="/pet-activate/:code" element={<PetActivatePage />} />
+        <Route path="/pet-register/:code" element={<PetRegisterPage />} />
+        <Route path="/pet-emergency/:code" element={<PetEmergencyPage />} />
+
+        {/* ======================
+        COMMON
+        ====================== */}
+
         <Route path="/expired/:code" element={<ExpiredPage />} />
         <Route path="/subscription/:code" element={<SubscriptionPage />} />
-
-        <Route path="/qr/:code" element={<QRResolver />} />
 
         {/* ======================
         ADMIN
