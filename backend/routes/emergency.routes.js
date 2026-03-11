@@ -24,7 +24,6 @@ export default function emergencyRoutes(pool) {
       if (!code) {
         return res.status(400).json({
           status: "invalid_qr",
-          qr_code: null,
           owner_name: null,
           owner_mobile: null,
           vehicle_number: null,
@@ -39,13 +38,11 @@ export default function emergencyRoutes(pool) {
 
       code = code.trim();
 
-      // basic format safety (alphanumeric + dash)
       const qrPattern = /^[A-Za-z0-9\-]+$/;
 
       if (!qrPattern.test(code)) {
         return res.status(400).json({
-          status: "invalid_qr",
-          qr_code: code
+          status: "invalid_qr"
         });
       }
 
@@ -63,7 +60,6 @@ export default function emergencyRoutes(pool) {
             q.id,
             q.status,
             q.expires_at,
-            q.qr_code,
 
             p.owner_name,
             p.owner_mobile,
@@ -100,7 +96,6 @@ export default function emergencyRoutes(pool) {
 
         return res.json({
           status: "not_found",
-          qr_code: code,
           owner_name: null,
           owner_mobile: null,
           vehicle_number: null,
@@ -125,7 +120,6 @@ export default function emergencyRoutes(pool) {
 
         return res.json({
           status: "inactive",
-          qr_code: qr.qr_code,
           owner_name: null,
           owner_mobile: null,
           vehicle_number: null,
@@ -147,7 +141,6 @@ export default function emergencyRoutes(pool) {
 
         return res.json({
           status: "expired",
-          qr_code: qr.qr_code,
           owner_name: null,
           owner_mobile: null,
           vehicle_number: null,
@@ -169,7 +162,6 @@ export default function emergencyRoutes(pool) {
 
         return res.json({
           status: "profile_missing",
-          qr_code: qr.qr_code,
           owner_name: null,
           owner_mobile: null,
           vehicle_number: null,
@@ -200,7 +192,6 @@ export default function emergencyRoutes(pool) {
 
       } catch (logErr) {
 
-        // logging must never break API
         console.error("Emergency scan log failed:", logErr);
 
       }
@@ -212,8 +203,6 @@ export default function emergencyRoutes(pool) {
       return res.json({
 
         status: "active",
-
-        qr_code: qr.qr_code || "",
 
         owner_name: qr.owner_name || "",
         owner_mobile: qr.owner_mobile || "",
