@@ -78,7 +78,7 @@ status: "expired"
 }
 
 /* ======================
-PROFILE NOT CREATED YET
+PROFILE NOT CREATED
 ====================== */
 
 if (!qr.owner_mobile) {
@@ -118,14 +118,26 @@ status: "active",
 
 qr_code: qr.qr_code,
 
-owner_name: qr.owner_name,
-owner_mobile: qr.owner_mobile,
+owner: {
+name: qr.owner_name || "",
+mobile: qr.owner_mobile || "",
+emergency_contact: qr.emergency_contact || ""
+},
 
-vehicle_number: qr.vehicle_number,
-model: qr.model,
+vehicle: {
+number: qr.vehicle_number || "",
+model: qr.model || ""
+},
 
-blood_group: qr.blood_group,
-emergency_contact: qr.emergency_contact
+medical: {
+blood_group: qr.blood_group || ""
+},
+
+emergency_numbers: {
+ambulance: "108",
+police: "100",
+fire: "101"
+}
 
 });
 
