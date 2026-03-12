@@ -1,104 +1,65 @@
 import express from "express";
 
-export default function adminRoutes(pool) {
+export default function adminRoutes(pool){
 
 const router = express.Router();
 
-/* =========================
-INVENTORY
-========================= */
-
-router.get("/inventory", async (req, res) => {
-
-  try {
-
-    const result = await pool.query(`
-      SELECT
-
-        q.id AS tag_id,
-        q.qr_code,
-        q.status,
-        q.type AS qr_type,
-        q.plan_type,
-        q.activated_at,
-        q.expires_at,
-
-        /* VEHICLE */
-        vp.owner_name AS vehicle_owner_name,
-        vp.owner_mobile AS vehicle_owner_mobile,
-        vp.vehicle_number,
-
-        /* PET */
-        pp.owner_name AS pet_owner_name,
-        pp.owner_mobile AS pet_owner_mobile,
-        pp.pet_name,
-
-        b.batch_name
-
-      FROM qr_tags q
-
-      LEFT JOIN vehicle_profiles vp
-      ON q.id = vp.qr_tag_id
-
-      LEFT JOIN pet_profiles pp
-      ON q.id = pp.qr_tag_id
-
-      LEFT JOIN qr_batches b
-      ON q.order_id = b.id
-
-      ORDER BY q.created_at DESC
-      LIMIT 1000
-    `);
-
-    const formatted = result.rows.map(tag => {
-
-      const owner_name =
-        tag.vehicle_owner_name ||
-        tag.pet_owner_name ||
-        null;
-
-      const owner_mobile =
-        tag.vehicle_owner_mobile ||
-        tag.pet_owner_mobile ||
-        null;
-
-      return {
-        tag_id: tag.tag_id,
-        qr_code: tag.qr_code,
-        status: tag.status,
-        qr_type: tag.qr_type,
-        plan_type: tag.plan_type,
-        activated_at: tag.activated_at,
-        expires_at: tag.expires_at,
-        owner_name,
-        owner_mobile,
-        vehicle_number: tag.vehicle_number || null,
-        pet_name: tag.pet_name || null,
-        batch_name: tag.batch_name
-      };
-
-    });
-
-    res.json(formatted);
-
-  } catch (err) {
-
-    console.error("Inventory error:", err);
-
-    res.status(500).json({
-      message: "Failed to fetch inventory"
-    });
-
-  }
-
-});
-
-/* =========================
-ADMIN TEST
-========================= */
+/* TEST ROUTE */
 
 router.get("/test",(req,res)=>{
 res.json({message:"Admin routes working"});
+});
+
+/* =========================
+ADMIN LOGIN
+========================= */
+
+router.post("/login", async (req,res)=>{
+
+try{
+
+const {email,password} = req.body;
+
+if(!email || !password){
+return res.status(400).json({
+message:"Email and password required"
+});
+}
+
+/* Example credentials (replace later with DB auth) */
+
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@vahantag.com";
+const ADMIN_PASS  = process.env.ADMIN_PASS  || "admin123";
+
+if(email !== ADMIN_EMAIL || password !== ADMIN_PASS){
+return res.status(401).json({
+message:"Invalid credentials"
+});
+}
+
+/* Set cookie */
+
+res.cookie("admin_auth","true",{
+httpOnly:true,
+secure:true,
+sameSite:"none",
+maxAge:24*60*60*1000
+});
+
+res.json({
+message:"Login successful"
+});
+
+}catch(err){
+
+console.error("Admin login error:",err);
+
+res.status(500).json({
+message:"Server error"
+});
+
+}
+
 });
 
 return router;
