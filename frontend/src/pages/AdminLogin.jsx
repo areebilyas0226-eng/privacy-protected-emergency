@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { API_BASE } from "../config";
 
-export default function AdminLogin() {
+export default function AdminLogin(){
 
 const [email,setEmail] = useState("");
 const [password,setPassword] = useState("");
@@ -17,6 +17,9 @@ setError("All fields required");
 return;
 }
 
+const controller = new AbortController();
+const timeout = setTimeout(()=>controller.abort(),10000);
+
 try{
 
 setLoading(true);
@@ -26,20 +29,31 @@ const res = await fetch(`${API_BASE}/admin/login`,{
 method:"POST",
 headers:{ "Content-Type":"application/json" },
 credentials:"include",
-body:JSON.stringify({ email,password })
+body:JSON.stringify({ email,password }),
+signal:controller.signal
 });
 
-const data = await res.json().catch(()=>({}));
+clearTimeout(timeout);
+
+let data = {};
+try{
+data = await res.json();
+}catch{}
 
 if(!res.ok){
-throw new Error(data?.message || "Login failed");
+throw new Error(data?.message || `Login failed (${res.status})`);
 }
 
-window.location.replace("/admin");
+/* redirect after success */
+window.location.href="/admin";
 
 }catch(err){
 
+if(err.name === "AbortError"){
+setError("Server timeout. Try again.");
+}else{
 setError(err.message || "Network error");
+}
 
 }finally{
 
@@ -70,10 +84,7 @@ border:"1px solid rgba(255,255,255,0.25)",
 color:"#fff"
 }}>
 
-<h2 style={{
-textAlign:"center",
-marginBottom:"25px"
-}}>
+<h2 style={{textAlign:"center",marginBottom:"25px"}}>
 Admin Login
 </h2>
 
