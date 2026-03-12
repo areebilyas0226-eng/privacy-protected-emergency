@@ -1,46 +1,84 @@
-router.get("/inventory", async (req,res)=>{
+router.get("/inventory", async (req, res) => {
 
-try{
+  try {
 
-const result = await pool.query(`
-SELECT
+    const result = await pool.query(`
+      SELECT
 
-q.id AS tag_id,
-q.qr_code,
-q.status,
-q.type AS qr_type,
-q.plan_type,
-q.activated_at,
-q.expires_at,
+        q.id AS tag_id,
+        q.qr_code,
+        q.status,
+        q.type AS qr_type,
+        q.plan_type,
+        q.activated_at,
+        q.expires_at,
 
-p.owner_name,
-p.owner_mobile,
-p.vehicle_number,
+        /* VEHICLE */
+        vp.owner_name AS vehicle_owner_name,
+        vp.owner_mobile AS vehicle_owner_mobile,
+        vp.vehicle_number,
 
-b.batch_name
+        /* PET */
+        pp.owner_name AS pet_owner_name,
+        pp.owner_mobile AS pet_owner_mobile,
+        pp.pet_name,
 
-FROM qr_tags q
+        b.batch_name
 
-LEFT JOIN vehicle_profiles p
-ON q.id = p.qr_tag_id
+      FROM qr_tags q
 
-LEFT JOIN qr_batches b
-ON q.order_id = b.id
+      LEFT JOIN vehicle_profiles vp
+      ON q.id = vp.qr_tag_id
 
-ORDER BY q.created_at DESC
-LIMIT 1000
-`);
+      LEFT JOIN pet_profiles pp
+      ON q.id = pp.qr_tag_id
 
-res.json(result.rows);
+      LEFT JOIN qr_batches b
+      ON q.order_id = b.id
 
-}catch(err){
+      ORDER BY q.created_at DESC
+      LIMIT 1000
+    `);
 
-console.error(err);
+    const formatted = result.rows.map(tag => {
 
-res.status(500).json({
-message:"Failed to fetch inventory"
-});
+      const owner_name =
+        tag.vehicle_owner_name ||
+        tag.pet_owner_name ||
+        null;
 
-}
+      const owner_mobile =
+        tag.vehicle_owner_mobile ||
+        tag.pet_owner_mobile ||
+        null;
+
+      return {
+        tag_id: tag.tag_id,
+        qr_code: tag.qr_code,
+        status: tag.status,
+        qr_type: tag.qr_type,
+        plan_type: tag.plan_type,
+        activated_at: tag.activated_at,
+        expires_at: tag.expires_at,
+        owner_name,
+        owner_mobile,
+        vehicle_number: tag.vehicle_number || null,
+        pet_name: tag.pet_name || null,
+        batch_name: tag.batch_name
+      };
+
+    });
+
+    res.json(formatted);
+
+  } catch (err) {
+
+    console.error("Inventory error:", err);
+
+    res.status(500).json({
+      message: "Failed to fetch inventory"
+    });
+
+  }
 
 });
