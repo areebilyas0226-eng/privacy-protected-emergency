@@ -17,8 +17,6 @@ import adminRoutes from "./routes/admin.routes.js";
 import profileRoutes from "./routes/profiles.routes.js";
 import publicRoutes from "./routes/public.routes.js";
 import tagRoutes from "./routes/tag.routes.js";
-
-/* NEW */
 import petRoutes from "./routes/pet.routes.js";
 
 const app = express();
@@ -102,12 +100,14 @@ app.use("/api/otp", otpRoutes(pool));
 app.use("/api/masked", maskedRoutes(pool));
 app.use("/api/tags", tagRoutes(pool));
 
-/* NEW PET ROUTE */
+/* PET ROUTES */
 app.use("/api/pet", petRoutes(pool));
 
+/* ADMIN */
 app.use("/api/admin/login", adminLimiter);
 app.use("/api/admin", adminRoutes(pool));
 
+/* PUBLIC */
 app.use("/", publicRoutes(pool));
 
 /* =========================
@@ -123,46 +123,54 @@ ERROR HANDLER
 ========================= */
 
 app.use((err, req, res, next) => {
+
   console.error("Server error:", err);
 
   if (err.type === "entity.parse.failed") {
-    return res.status(400).json({ message: "Invalid JSON body" });
+    return res.status(400).json({
+      message: "Invalid JSON body"
+    });
   }
 
-  res.status(500).json({ message: "Internal server error" });
+  res.status(500).json({
+    message: "Internal server error"
+  });
+
 });
 
 /* =========================
-START SERVER
+START SERVER (NON BLOCKING)
 ========================= */
 
 let server;
 
-async function startServer() {
+server = app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on port ${PORT}`);
+});
 
-  try {
+/* =========================
+CHECK DATABASE AFTER START
+========================= */
 
-    console.log("Connecting database...");
+async function checkDatabase(){
 
-    await pool.query("SELECT 1");
+try{
 
-    console.log("Database connected");
+console.log("Checking database connection...");
 
-    server = app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on port ${PORT}`);
-    });
+await pool.query("SELECT 1");
 
-  } catch (err) {
+console.log("Database connected");
 
-    console.error("Database connection failed:", err);
+}catch(err){
 
-    process.exit(1);
-
-  }
+console.error("Database connection failed:",err);
 
 }
 
-startServer();
+}
+
+checkDatabase();
 
 /* =========================
 GRACEFUL SHUTDOWN
@@ -181,10 +189,13 @@ const shutdown = async () => {
     }
 
     await pool.end();
+
     console.log("Database pool closed");
 
   } catch (err) {
+
     console.error("Shutdown DB error:", err);
+
   }
 
   process.exit(0);
