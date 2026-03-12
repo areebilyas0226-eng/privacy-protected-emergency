@@ -1,3 +1,13 @@
+import express from "express";
+
+export default function adminRoutes(pool) {
+
+const router = express.Router();
+
+/* =========================
+INVENTORY
+========================= */
+
 router.get("/inventory", async (req, res) => {
 
   try {
@@ -82,3 +92,15 @@ router.get("/inventory", async (req, res) => {
   }
 
 });
+
+/* =========================
+ADMIN TEST
+========================= */
+
+router.get("/test",(req,res)=>{
+res.json({message:"Admin routes working"});
+});
+
+return router;
+
+}
