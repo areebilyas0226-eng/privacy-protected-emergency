@@ -15,7 +15,7 @@ try{
 const { code } = req.params;
 
 const tag = await pool.query(
-`SELECT id,status FROM qr_tags WHERE qr_code=$1`,
+`SELECT id,status,type FROM qr_tags WHERE qr_code=$1`,
 [code]
 );
 
@@ -40,7 +40,8 @@ WHERE qr_code=$1
 );
 
 return res.json({
-message:"tag_activated"
+message:"tag_activated",
+type:tag.rows[0].type
 });
 
 }catch(err){

@@ -35,7 +35,6 @@ setTags(Array.isArray(data)?data:[]);
 }catch(err){
 
 console.error(err);
-
 setTags([]);
 
 }
@@ -102,11 +101,13 @@ const query = search.toLowerCase();
 const code = tag?.qr_code?.toLowerCase() || "";
 const mobile = tag?.owner_mobile?.toLowerCase() || "";
 const vehicle = tag?.vehicle_number?.toLowerCase() || "";
+const type = tag?.qr_type?.toLowerCase() || "";
 
 const matchesSearch =
 code.includes(query) ||
 mobile.includes(query) ||
-vehicle.includes(query);
+vehicle.includes(query) ||
+type.includes(query);
 
 let status = tag.status;
 
@@ -163,6 +164,7 @@ onChange={(e)=>setStatusFilter(e.target.value)}
 <tr>
 
 <th style={styles.th}>Tag ID</th>
+<th style={styles.th}>QR Type</th>
 <th style={styles.th}>Owner</th>
 <th style={styles.th}>Mobile</th>
 <th style={styles.th}>Vehicle</th>
@@ -181,7 +183,7 @@ onChange={(e)=>setStatusFilter(e.target.value)}
 {filteredTags.length===0 ? (
 
 <tr>
-<td colSpan="9" style={styles.empty}>
+<td colSpan="10" style={styles.empty}>
 No inventory found
 </td>
 </tr>
@@ -199,6 +201,8 @@ return(
 <tr key={tag.tag_id}>
 
 <td style={styles.qr}>{tag.tag_id}</td>
+
+<td style={styles.td}>{tag.qr_type || "-"}</td>
 
 <td style={styles.td}>{tag.owner_name || "-"}</td>
 
