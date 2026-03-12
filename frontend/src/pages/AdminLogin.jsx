@@ -1,10 +1,5 @@
 import { useState } from "react";
-
-const API_BASE = import.meta.env.VITE_API_URL;
-
-if (!API_BASE) {
-  throw new Error("VITE_API_URL is not defined");
-}
+import { API_BASE } from "../config";
 
 export default function AdminLogin() {
 
@@ -27,7 +22,7 @@ try{
 setLoading(true);
 setError("");
 
-const res = await fetch(`${API_BASE}/api/admin/login`,{
+const res = await fetch(`${API_BASE}/admin/login`,{
 method:"POST",
 headers:{ "Content-Type":"application/json" },
 credentials:"include",
@@ -63,8 +58,6 @@ alignItems:"center",
 justifyContent:"center",
 background:"linear-gradient(135deg,#4f46e5,#06b6d4,#9333ea)"
 }}>
-
-{/* Glass Container */}
 
 <div style={{
 width:"420px",
