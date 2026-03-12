@@ -18,9 +18,8 @@ import profileRoutes from "./routes/profiles.routes.js";
 import publicRoutes from "./routes/public.routes.js";
 import tagRoutes from "./routes/tag.routes.js";
 
-/* =========================
-APP INIT
-========================= */
+/* NEW */
+import petRoutes from "./routes/pet.routes.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -103,6 +102,9 @@ app.use("/api/otp", otpRoutes(pool));
 app.use("/api/masked", maskedRoutes(pool));
 app.use("/api/tags", tagRoutes(pool));
 
+/* NEW PET ROUTE */
+app.use("/api/pet", petRoutes(pool));
+
 app.use("/api/admin/login", adminLimiter);
 app.use("/api/admin", adminRoutes(pool));
 
@@ -121,23 +123,17 @@ ERROR HANDLER
 ========================= */
 
 app.use((err, req, res, next) => {
-
   console.error("Server error:", err);
 
   if (err.type === "entity.parse.failed") {
-    return res.status(400).json({
-      message: "Invalid JSON body"
-    });
+    return res.status(400).json({ message: "Invalid JSON body" });
   }
 
-  res.status(500).json({
-    message: "Internal server error"
-  });
-
+  res.status(500).json({ message: "Internal server error" });
 });
 
 /* =========================
-START SERVER (SAFE)
+START SERVER
 ========================= */
 
 let server;
@@ -185,13 +181,10 @@ const shutdown = async () => {
     }
 
     await pool.end();
-
     console.log("Database pool closed");
 
   } catch (err) {
-
     console.error("Shutdown DB error:", err);
-
   }
 
   process.exit(0);

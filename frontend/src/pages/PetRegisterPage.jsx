@@ -73,8 +73,6 @@ setLoading(true);
 
 try{
 
-/* verify otp */
-
 const verify = await fetch(`${API_BASE}/api/otp/verify`,{
 method:"POST",
 headers:{ "Content-Type":"application/json" },
@@ -89,8 +87,6 @@ alert("Invalid OTP");
 setLoading(false);
 return;
 }
-
-/* register pet */
 
 const res = await fetch(`${API_BASE}/api/pet/register/${code}`,{
 method:"POST",
