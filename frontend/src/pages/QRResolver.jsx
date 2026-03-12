@@ -1,134 +1,106 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useRef } from "react";
+import { API_BASE } from "../config";
 
-const API_BASE = import.meta.env.VITE_API_URL;
+export default function QRResolver() {
 
-export default function QRResolver(){
+  const { code } = useParams();
+  const navigate = useNavigate();
+  const resolved = useRef(false);
 
-const { code } = useParams();
-const navigate = useNavigate();
-const resolved = useRef(false);
+  useEffect(() => {
 
-useEffect(()=>{
+    if (!code || resolved.current) return;
+    resolved.current = true;
 
-if(!code || resolved.current) return;
+    async function resolveQR() {
 
-resolved.current = true;
+      try {
 
-async function resolveQR(){
+        const res = await fetch(`${API_BASE}/qr/${code}`);
 
-try{
+        if (!res.ok) {
+          navigate(`/expired/${code}`, { replace: true });
+          return;
+        }
 
-const res = await fetch(`${API_BASE}/api/qr/${code}`);
+        const data = await res.json();
+        const type = data.qr_type || "vehicle";
 
-if(!res.ok){
-navigate(`/expired/${code}`,{replace:true});
-return;
-}
+        const activateRoute =
+          type === "pet"
+            ? `/pet-activate/${code}`
+            : `/vehicle-activate/${code}`;
 
-const data = await res.json();
+        const registerRoute =
+          type === "pet"
+            ? `/pet-register/${code}`
+            : `/vehicle-register/${code}`;
 
-const type = data.qr_type || "vehicle";
+        const emergencyRoute =
+          type === "pet"
+            ? `/pet-emergency/${code}`
+            : `/vehicle-emergency/${code}`;
 
-/* ROUTES */
+        if (data.status === "inactive") {
+          navigate(activateRoute, { replace: true });
+          return;
+        }
 
-const activateRoute =
-type === "pet"
-? `/pet-activate/${code}`
-: `/vehicle-activate/${code}`;
+        if (data.status === "activation_pending") {
+          navigate(registerRoute, { replace: true });
+          return;
+        }
 
-const registerRoute =
-type === "pet"
-? `/pet-register/${code}`
-: `/vehicle-register/${code}`;
+        if (data.status === "expired") {
+          navigate(`/subscription/${code}`, { replace: true });
+          return;
+        }
 
-const emergencyRoute =
-type === "pet"
-? `/pet-emergency/${code}`
-: `/vehicle-emergency/${code}`;
+        if (data.status === "active") {
 
-/* ======================
-INACTIVE
-====================== */
+          const expiry = data.expires_at
+            ? new Date(data.expires_at)
+            : null;
 
-if(data.status === "inactive"){
-navigate(activateRoute,{replace:true});
-return;
-}
+          const now = new Date();
 
-/* ======================
-ACTIVATION STARTED
-====================== */
+          if (!expiry || expiry > now) {
+            navigate(emergencyRoute, { replace: true });
+            return;
+          }
 
-if(data.status === "activation_pending"){
-navigate(registerRoute,{replace:true});
-return;
-}
+          navigate(`/subscription/${code}`, { replace: true });
+          return;
+        }
 
-/* ======================
-EXPIRED
-====================== */
+        navigate(`/expired/${code}`, { replace: true });
 
-if(data.status === "expired"){
-navigate(`/subscription/${code}`,{replace:true});
-return;
-}
+      } catch (err) {
 
-/* ======================
-ACTIVE
-====================== */
+        console.error(err);
+        navigate(`/expired/${code}`, { replace: true });
 
-if(data.status === "active"){
+      }
 
-const expiry = data.expires_at ? new Date(data.expires_at) : null;
-const now = new Date();
+    }
 
-if(!expiry){
-navigate(emergencyRoute,{replace:true});
-return;
-}
+    resolveQR();
 
-if(expiry.getTime() > now.getTime()){
-navigate(emergencyRoute,{replace:true});
-return;
-}
+  }, [code, navigate]);
 
-navigate(`/subscription/${code}`,{replace:true});
-return;
-
-}
-
-/* ======================
-FALLBACK
-====================== */
-
-navigate(`/expired/${code}`,{replace:true});
-
-}catch(err){
-
-console.error(err);
-navigate(`/expired/${code}`,{replace:true});
-
-}
-
-}
-
-resolveQR();
-
-},[code,navigate]);
-
-return(
-
-<div style={{
-minHeight:"100vh",
-display:"flex",
-alignItems:"center",
-justifyContent:"center",
-fontSize:"18px"
-}}>
-Resolving QR...
-</div>
-
-);
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: "18px"
+      }}
+    >
+      Resolving QR...
+    </div>
+  );
 
 }
